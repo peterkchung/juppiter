@@ -4,7 +4,7 @@ A perception system for mobile robots that localizes in dynamic environments, bu
 
 ## Status
 
-Early development. Currently scaffolding the ROS 2 workspace and Docker environment.
+Early development. Workspace scaffolding and Docker dev environment are functional.
 
 ## Stack
 
@@ -18,9 +18,12 @@ Early development. Currently scaffolding the ROS 2 workspace and Docker environm
 
 ```
 juppiter/
+├── .github/workflows/
+│   └── ci.yml                  # CI: colcon build + test on PRs
 ├── docker/
-│   ├── Dockerfile.dev          # Dev container (placeholder)
-│   └── docker-compose.yml      # Compose config (placeholder)
+│   ├── Dockerfile.dev          # Dev container (ROS 2 Kilted)
+│   ├── docker-compose.yml      # Compose config with WSLg forwarding
+│   └── entrypoint.sh           # Sources ROS 2 overlay on entry
 ├── src/
 │   └── common_msgs/            # Custom message/service definitions
 │       ├── msg/
@@ -36,7 +39,18 @@ juppiter/
 
 ## Getting Started
 
-tbd — Docker build and workspace setup instructions will be added at a later date.
+**Prerequisites:** Docker and Docker Compose. WSL2 with WSLg for GUI forwarding on Windows.
+
+```bash
+# Build the dev container
+docker compose -f docker/docker-compose.yml build
+
+# Open a shell in the container
+docker compose -f docker/docker-compose.yml run --rm dev bash
+
+# Rebuild packages after changes (inside container)
+colcon build --symlink-install
+```
 
 ## Development
 
