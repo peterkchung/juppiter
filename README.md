@@ -22,6 +22,12 @@ tbd — Docker build and workspace setup instructions will be added at a later d
 
 See [DESIGN.md](DESIGN.md) for architecture notes.
 
+### Branch Guidelines
+
+- **`main`** — stable releases only. PRs from `develop`, squash merged.
+- **`develop`** — integration branch. PRs from feature branches, merge committed to preserve history.
+- **feature branches** — branch off `develop`, open a PR back into `develop` when ready.
+
 ## License
 
 tbd
