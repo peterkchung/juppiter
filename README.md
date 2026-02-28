@@ -94,7 +94,7 @@ See [DESIGN.md](DESIGN.md) for architecture notes.
 
 ### Branch Guidelines
 
-- **`main`** — stable releases only. PRs from `develop`, squash merged.
+- **`main`** — stable releases only. PRs from `develop`, merge committed.
 - **`develop`** — integration branch. PRs from feature branches, merge committed to preserve history.
 - **feature branches** — branch off `develop`, open a PR back into `develop` when ready.
 
