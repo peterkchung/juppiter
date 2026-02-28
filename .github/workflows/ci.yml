@@ -1,0 +1,37 @@
+# About: CI pipeline for juppiter.
+# Runs colcon build and test inside a ROS 2 Kilted container
+# on every PR to develop and main.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    container:
+      image: ros:kilted
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y python3-colcon-common-extensions
+          rosdep update
+          rosdep install --from-paths src --ignore-src -y
+
+      - name: Build
+        run: |
+          . /opt/ros/kilted/setup.sh
+          colcon build --event-handlers console_direct+
+
+      - name: Test
+        run: |
+          . /opt/ros/kilted/setup.sh
+          colcon test --event-handlers console_direct+
+          colcon test-result --verbose

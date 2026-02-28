@@ -18,6 +18,22 @@ RealSense D435i (RGB + Depth + IMU)
         └──► query_node ─────── spatial queries over the map
 ```
 
+## CI/CD
+
+PRs to `develop` run automated checks and auto-merge on pass. PRs to `main` require manual sign-off.
+
+**Active (Tier 1):**
+- `colcon build` — compile all packages, validate message definitions
+- `colcon test` — run unit tests declared in packages
+
+**Planned (Tier 2) — add when C++ nodes exist:**
+- `ament_lint` — ROS 2 style and convention checks
+- `cppcheck` — static analysis for C++ (null derefs, memory leaks, undefined behavior)
+
+**Planned (Tier 3) — add when nodes can be launched together:**
+- Integration tests — launch node graph, replay bag, verify outputs
+- Coverage thresholds
+
 ## Design Decisions
 
 tbd
