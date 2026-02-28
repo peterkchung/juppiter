@@ -1,3 +1,4 @@
+// Copyright 2026 Arconic Labs
 // About: EuRoC MAV dataset parser implementation.
 
 #include "euroc_reader.hpp"
@@ -8,10 +9,12 @@
 
 #include <opencv2/imgcodecs.hpp>
 
-namespace sensor_bridge {
+namespace sensor_bridge
+{
 
-EurocReader::EurocReader(const std::string& mav0_path)
-    : mav0_path_(mav0_path) {
+EurocReader::EurocReader(const std::string & mav0_path)
+: mav0_path_(mav0_path)
+{
   if (!std::filesystem::is_directory(mav0_path_)) {
     throw std::runtime_error("EuRoC mav0 directory not found: " + mav0_path);
   }
@@ -25,8 +28,9 @@ EurocReader::EurocReader(const std::string& mav0_path)
   }
 }
 
-cv::Mat EurocReader::load_image(int cam_id, size_t index) const {
-  const auto& entries = (cam_id == 0) ? cam0_entries_ : cam1_entries_;
+cv::Mat EurocReader::load_image(int cam_id, size_t index) const
+{
+  const auto & entries = (cam_id == 0) ? cam0_entries_ : cam1_entries_;
   if (index >= entries.size()) {
     throw std::out_of_range("Image index out of range");
   }
@@ -41,19 +45,23 @@ cv::Mat EurocReader::load_image(int cam_id, size_t index) const {
   return img;
 }
 
-int64_t EurocReader::image_timestamp_ns(size_t index) const {
+int64_t EurocReader::image_timestamp_ns(size_t index) const
+{
   if (index >= cam0_entries_.size()) {
     throw std::out_of_range("Image index out of range");
   }
   return cam0_entries_[index].timestamp_ns;
 }
 
-const std::vector<ImageEntry>& EurocReader::image_entries(int cam_id) const {
+const std::vector<ImageEntry> & EurocReader::image_entries(int cam_id) const
+{
   return (cam_id == 0) ? cam0_entries_ : cam1_entries_;
 }
 
-void EurocReader::load_image_csv(const std::filesystem::path& csv_path,
-                                 std::vector<ImageEntry>& entries) {
+void EurocReader::load_image_csv(
+  const std::filesystem::path & csv_path,
+  std::vector<ImageEntry> & entries)
+{
   std::ifstream file(csv_path);
   if (!file.is_open()) {
     throw std::runtime_error("Cannot open CSV: " + csv_path.string());
@@ -64,7 +72,7 @@ void EurocReader::load_image_csv(const std::filesystem::path& csv_path,
   std::getline(file, line);
 
   while (std::getline(file, line)) {
-    if (line.empty() || line[0] == '#') continue;
+    if (line.empty() || line[0] == '#') {continue;}
 
     std::istringstream ss(line);
     std::string ts_str, filename;
@@ -82,7 +90,8 @@ void EurocReader::load_image_csv(const std::filesystem::path& csv_path,
   }
 }
 
-void EurocReader::load_imu_csv(const std::filesystem::path& csv_path) {
+void EurocReader::load_imu_csv(const std::filesystem::path & csv_path)
+{
   std::ifstream file(csv_path);
   if (!file.is_open()) {
     throw std::runtime_error("Cannot open IMU CSV: " + csv_path.string());
@@ -93,7 +102,7 @@ void EurocReader::load_imu_csv(const std::filesystem::path& csv_path) {
   std::getline(file, line);
 
   while (std::getline(file, line)) {
-    if (line.empty() || line[0] == '#') continue;
+    if (line.empty() || line[0] == '#') {continue;}
 
     std::istringstream ss(line);
     std::string token;

@@ -1,3 +1,4 @@
+// Copyright 2026 Arconic Labs
 // About: Stereo rectification and depth map computation via StereoSGBM.
 // Pure C++/OpenCV — no ROS dependency.
 
@@ -8,9 +9,11 @@
 #include <opencv2/calib3d.hpp>
 #include <opencv2/core.hpp>
 
-namespace sensor_bridge {
+namespace sensor_bridge
+{
 
-struct StereoParams {
+struct StereoParams
+{
   // Image dimensions
   int width = 752;
   int height = 480;
@@ -34,22 +37,22 @@ struct StereoParams {
 };
 
 class StereoDepth {
- public:
-  explicit StereoDepth(const StereoParams& params);
+public:
+  explicit StereoDepth(const StereoParams & params);
 
   // Compute a 32FC1 depth map from a rectified stereo pair.
   // Inputs are raw (unrectified) grayscale images.
   // Returns depth in meters; invalid pixels are 0.
-  cv::Mat compute(const cv::Mat& left, const cv::Mat& right) const;
+  cv::Mat compute(const cv::Mat & left, const cv::Mat & right) const;
 
   // Focal length of rectified camera (for CameraInfo).
-  double rectified_fx() const { return rectified_fx_; }
+  double rectified_fx() const {return rectified_fx_;}
 
   // Principal point of rectified camera.
-  double rectified_cx() const { return rectified_cx_; }
-  double rectified_cy() const { return rectified_cy_; }
+  double rectified_cx() const {return rectified_cx_;}
+  double rectified_cy() const {return rectified_cy_;}
 
- private:
+private:
   StereoParams params_;
 
   // Rectification maps

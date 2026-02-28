@@ -1,3 +1,4 @@
+// Copyright 2026 Arconic Labs
 // About: ROS 2 sensor_bridge node implementation.
 // Replays EuRoC MAV datasets with wall-clock timing, interleaving IMU before
 // camera frames to preserve causal ordering for VIO.
@@ -15,11 +16,14 @@
 
 using namespace std::chrono_literals;
 
-namespace sensor_bridge {
+namespace sensor_bridge
+{
 
 SensorBridgeNode::~SensorBridgeNode() = default;
 
-SensorBridgeNode::SensorBridgeNode() : Node("sensor_bridge_node") {
+SensorBridgeNode::SensorBridgeNode()
+: Node("sensor_bridge_node")
+{
   // Declare parameters
   declare_parameter<std::string>("dataset_path", "");
   declare_parameter<double>("playback_rate", 1.0);
@@ -33,18 +37,18 @@ SensorBridgeNode::SensorBridgeNode() : Node("sensor_bridge_node") {
   declare_parameter<double>("cam0_cx", 367.215);
   declare_parameter<double>("cam0_cy", 248.375);
   declare_parameter<std::vector<double>>("cam0_d",
-      {-0.28340811, 0.07395907, 0.00019359, 1.76187114e-05, 0.0});
+    {-0.28340811, 0.07395907, 0.00019359, 1.76187114e-05, 0.0});
   declare_parameter<double>("cam1_fx", 457.587);
   declare_parameter<double>("cam1_fy", 456.134);
   declare_parameter<double>("cam1_cx", 379.999);
   declare_parameter<double>("cam1_cy", 255.238);
   declare_parameter<std::vector<double>>("cam1_d",
-      {-0.28368365, 0.07451284, -0.00010473, -3.55590700e-05, 0.0});
+    {-0.28368365, 0.07451284, -0.00010473, -3.55590700e-05, 0.0});
   declare_parameter<double>("baseline_m", 0.110074);
   declare_parameter<std::vector<double>>("R_cam0_cam1",
-      {0.9999, 0.0098, -0.0074, -0.0099, 0.9999, -0.0044, 0.0074, 0.0045, 0.9999});
+    {0.9999, 0.0098, -0.0074, -0.0099, 0.9999, -0.0044, 0.0074, 0.0045, 0.9999});
   declare_parameter<std::vector<double>>("T_cam0_cam1",
-      {-0.110074, 0.000399, 0.000853});
+    {-0.110074, 0.000399, 0.000853});
   declare_parameter<int>("num_disparities", 96);
   declare_parameter<int>("block_size", 11);
 
@@ -76,18 +80,26 @@ SensorBridgeNode::SensorBridgeNode() : Node("sensor_bridge_node") {
     sp.cam0_cx = get_parameter("cam0_cx").as_double();
     sp.cam0_cy = get_parameter("cam0_cy").as_double();
     auto d0 = get_parameter("cam0_d").as_double_array();
-    for (size_t i = 0; i < 5 && i < d0.size(); ++i) sp.cam0_d[i] = d0[i];
+    for (size_t i = 0; i < 5 && i < d0.size(); ++i) {
+      sp.cam0_d[i] = d0[i];
+    }
     sp.cam1_fx = get_parameter("cam1_fx").as_double();
     sp.cam1_fy = get_parameter("cam1_fy").as_double();
     sp.cam1_cx = get_parameter("cam1_cx").as_double();
     sp.cam1_cy = get_parameter("cam1_cy").as_double();
     auto d1 = get_parameter("cam1_d").as_double_array();
-    for (size_t i = 0; i < 5 && i < d1.size(); ++i) sp.cam1_d[i] = d1[i];
+    for (size_t i = 0; i < 5 && i < d1.size(); ++i) {
+      sp.cam1_d[i] = d1[i];
+    }
     sp.baseline_m = get_parameter("baseline_m").as_double();
     auto R = get_parameter("R_cam0_cam1").as_double_array();
-    for (size_t i = 0; i < 9 && i < R.size(); ++i) sp.R_cam0_cam1[i] = R[i];
+    for (size_t i = 0; i < 9 && i < R.size(); ++i) {
+      sp.R_cam0_cam1[i] = R[i];
+    }
     auto T = get_parameter("T_cam0_cam1").as_double_array();
-    for (size_t i = 0; i < 3 && i < T.size(); ++i) sp.T_cam0_cam1[i] = T[i];
+    for (size_t i = 0; i < 3 && i < T.size(); ++i) {
+      sp.T_cam0_cam1[i] = T[i];
+    }
     sp.num_disparities = get_parameter("num_disparities").as_int();
     sp.block_size = get_parameter("block_size").as_int();
 
@@ -129,7 +141,8 @@ SensorBridgeNode::SensorBridgeNode() : Node("sensor_bridge_node") {
               publish_depth_ ? "true" : "false");
 }
 
-void SensorBridgeNode::timer_callback() {
+void SensorBridgeNode::timer_callback()
+{
   if (next_frame_idx_ >= reader_->num_frames()) {
     if (loop_) {
       RCLCPP_INFO(get_logger(), "Looping dataset");
@@ -161,16 +174,18 @@ void SensorBridgeNode::timer_callback() {
 
   // Publish camera frame if its timestamp has been reached
   while (next_frame_idx_ < reader_->num_frames() &&
-         reader_->image_timestamp_ns(next_frame_idx_) <= target_ns) {
+    reader_->image_timestamp_ns(next_frame_idx_) <= target_ns)
+  {
     publish_frame(next_frame_idx_);
     next_frame_idx_++;
   }
 }
 
-void SensorBridgeNode::publish_imu_up_to(int64_t target_ns) {
-  const auto& imu = reader_->imu_samples();
+void SensorBridgeNode::publish_imu_up_to(int64_t target_ns)
+{
+  const auto & imu = reader_->imu_samples();
   while (next_imu_idx_ < imu.size() && imu[next_imu_idx_].timestamp_ns <= target_ns) {
-    const auto& s = imu[next_imu_idx_];
+    const auto & s = imu[next_imu_idx_];
 
     sensor_msgs::msg::Imu msg;
     msg.header.stamp = to_ros_time(s.timestamp_ns);
@@ -187,7 +202,8 @@ void SensorBridgeNode::publish_imu_up_to(int64_t target_ns) {
   }
 }
 
-void SensorBridgeNode::publish_frame(size_t frame_idx) {
+void SensorBridgeNode::publish_frame(size_t frame_idx)
+{
   auto ts_ns = reader_->image_timestamp_ns(frame_idx);
   auto stamp = to_ros_time(ts_ns);
 
@@ -214,11 +230,13 @@ void SensorBridgeNode::publish_frame(size_t frame_idx) {
   }
 }
 
-rclcpp::Time SensorBridgeNode::to_ros_time(int64_t timestamp_ns) const {
+rclcpp::Time SensorBridgeNode::to_ros_time(int64_t timestamp_ns) const
+{
   return rclcpp::Time(timestamp_ns, RCL_ROS_TIME);
 }
 
-void SensorBridgeNode::reset_playback() {
+void SensorBridgeNode::reset_playback()
+{
   wall_start_ = now();
   dataset_start_ns_ = reader_->image_timestamp_ns(0);
   next_frame_idx_ = 0;

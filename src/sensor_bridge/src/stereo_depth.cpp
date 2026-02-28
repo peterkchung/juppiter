@@ -1,3 +1,4 @@
+// Copyright 2026 Arconic Labs
 // About: Stereo rectification and StereoSGBM depth computation.
 
 #include "stereo_depth.hpp"
@@ -5,25 +6,28 @@
 #include <opencv2/calib3d.hpp>
 #include <opencv2/imgproc.hpp>
 
-namespace sensor_bridge {
+namespace sensor_bridge
+{
 
-StereoDepth::StereoDepth(const StereoParams& params) : params_(params) {
+StereoDepth::StereoDepth(const StereoParams & params)
+: params_(params)
+{
   // Build intrinsic matrices
   cv::Mat K0 = (cv::Mat_<double>(3, 3) <<
-      params.cam0_fx, 0, params.cam0_cx,
-      0, params.cam0_fy, params.cam0_cy,
-      0, 0, 1);
+    params.cam0_fx, 0, params.cam0_cx,
+    0, params.cam0_fy, params.cam0_cy,
+    0, 0, 1);
   cv::Mat K1 = (cv::Mat_<double>(3, 3) <<
-      params.cam1_fx, 0, params.cam1_cx,
-      0, params.cam1_fy, params.cam1_cy,
-      0, 0, 1);
+    params.cam1_fx, 0, params.cam1_cx,
+    0, params.cam1_fy, params.cam1_cy,
+    0, 0, 1);
 
-  cv::Mat D0(1, 5, CV_64F, const_cast<double*>(params.cam0_d.data()));
-  cv::Mat D1(1, 5, CV_64F, const_cast<double*>(params.cam1_d.data()));
+  cv::Mat D0(1, 5, CV_64F, const_cast<double *>(params.cam0_d.data()));
+  cv::Mat D1(1, 5, CV_64F, const_cast<double *>(params.cam1_d.data()));
 
   // Rotation and translation from cam0 to cam1
-  cv::Mat R(3, 3, CV_64F, const_cast<double*>(params.R_cam0_cam1.data()));
-  cv::Mat T(3, 1, CV_64F, const_cast<double*>(params.T_cam0_cam1.data()));
+  cv::Mat R(3, 3, CV_64F, const_cast<double *>(params.R_cam0_cam1.data()));
+  cv::Mat T(3, 1, CV_64F, const_cast<double *>(params.T_cam0_cam1.data()));
 
   cv::Size img_size(params.width, params.height);
 
@@ -60,7 +64,8 @@ StereoDepth::StereoDepth(const StereoParams& params) : params_(params) {
       cv::StereoSGBM::MODE_SGBM_3WAY);
 }
 
-cv::Mat StereoDepth::compute(const cv::Mat& left, const cv::Mat& right) const {
+cv::Mat StereoDepth::compute(const cv::Mat & left, const cv::Mat & right) const
+{
   // Rectify
   cv::Mat rect_left, rect_right;
   cv::remap(left, rect_left, map1_left_, map2_left_, cv::INTER_LINEAR);
@@ -77,8 +82,8 @@ cv::Mat StereoDepth::compute(const cv::Mat& left, const cv::Mat& right) const {
   // Convert disparity to depth: depth = fx * baseline / disparity
   cv::Mat depth(disparity_f.size(), CV_32FC1, 0.0f);
   for (int y = 0; y < disparity_f.rows; ++y) {
-    const float* disp_row = disparity_f.ptr<float>(y);
-    float* depth_row = depth.ptr<float>(y);
+    const float * disp_row = disparity_f.ptr<float>(y);
+    float * depth_row = depth.ptr<float>(y);
     for (int x = 0; x < disparity_f.cols; ++x) {
       float d = disp_row[x];
       if (d > 0.0f) {

@@ -1,3 +1,4 @@
+// Copyright 2026 Arconic Labs
 // About: ROS 2 node that replays EuRoC MAV datasets as sensor topics.
 // Publishes color images, depth maps, IMU data, and camera info.
 
@@ -11,18 +12,19 @@
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 
-namespace sensor_bridge {
+namespace sensor_bridge
+{
 
 // Forward declarations to keep ROS header clean of OpenCV internals
 class EurocReader;
 class StereoDepth;
 
 class SensorBridgeNode : public rclcpp::Node {
- public:
+public:
   SensorBridgeNode();
   ~SensorBridgeNode() override;
 
- private:
+private:
   void timer_callback();
   void publish_imu_up_to(int64_t target_ns);
   void publish_frame(size_t frame_idx);
