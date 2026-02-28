@@ -71,6 +71,26 @@ download_bundle() {
   unzip -q -o "$zipfile" -d "$DATA_DIR"
   rm "$zipfile"
 
+  # Extract inner sequence zips (bundle contains per-sequence zips)
+  local bundle_dir="$DATA_DIR/$name"
+  if [[ -d "$bundle_dir" ]]; then
+    for seq_dir in "$bundle_dir"/*/; do
+      local seq_name
+      seq_name="$(basename "$seq_dir")"
+      local inner_zip="$seq_dir/${seq_name}.zip"
+      if [[ -f "$inner_zip" ]]; then
+        echo "Extracting $seq_name..."
+        unzip -q -o "$inner_zip" -d "$seq_dir"
+        rm "$inner_zip"
+      fi
+      # Symlink to flat path: data/MH_01_easy -> data/machine_hall/MH_01_easy
+      local link="$DATA_DIR/$seq_name"
+      if [[ ! -e "$link" ]]; then
+        ln -s "$name/$seq_name" "$link"
+      fi
+    done
+  fi
+
   touch "$marker"
   echo "$name bundle extracted."
 }
