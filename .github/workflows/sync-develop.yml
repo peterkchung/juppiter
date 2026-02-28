@@ -1,5 +1,5 @@
-# About: Merges main back into develop after a squash merge.
-# Prevents history divergence that causes conflicts on the next PR to main.
+# About: Syncs develop with main after a squash merge.
+# Creates a PR that auto-merges once CI passes.
 
 name: Sync develop
 
@@ -12,16 +12,24 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Merge main into develop
+      - name: Create sync PR
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout develop
-          git merge main --no-edit
-          git push origin develop
+          BRANCH="sync/main-to-develop-$(date +%s)"
+          git checkout -b "$BRANCH" origin/main
+          git push origin "$BRANCH"
+          gh pr create \
+            --base develop \
+            --head "$BRANCH" \
+            --title "chore: sync main into develop" \
+            --body "Automated sync of main back into develop after squash merge."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
