@@ -1,38 +1,32 @@
 # About: Development container for juppiter.
-# Builds a ROS 2 Kilted environment with all dependencies for the
+# Builds a ROS 2 Kilted environment with dependencies for the
 # perception pipeline. This same base will later be adapted for
 # ARM64 deployment on Raspberry Pi 5.
-#
-# STATUS: Placeholder — not yet functional.
 
-# --- Base image ---
-# ros:kilted-desktop includes RViz2 and rqt for visualization.
-# For Pi 5 deployment we'll switch to ros:kilted-ros-base (smaller, no GUI).
-#
-# FROM ros:kilted-desktop
+FROM osrf/ros:kilted-desktop
 
 # --- System dependencies ---
-# C++ libraries required by ORB-SLAM3 and the perception pipeline.
-#
-# RUN apt-get update && apt-get install -y \
-#     libpangolin-dev \
-#     libeigen3-dev \
-#     libopencv-dev \
-#     libg2o-dev \
-#     librealsense2-dev \
-#     cmake \
-#     build-essential \
-#     git \
-#     && rm -rf /var/lib/apt/lists/*
+# Only installing what we need right now: colcon build tools.
+# ORB-SLAM3 deps (pangolin, g2o, etc.) will be added when those
+# packages are introduced.
+RUN apt-get update && apt-get install -y \
+    python3-colcon-common-extensions \
+    python3-rosdep \
+    && rm -rf /var/lib/apt/lists/*
 
 # --- Workspace ---
-# ROS 2 convention: /ws as workspace root, source packages in /ws/src.
-#
-# WORKDIR /ws
-# COPY src/ /ws/src/
-# RUN . /opt/ros/kilted/setup.sh && colcon build --symlink-install
+WORKDIR /ws
+COPY src/ /ws/src/
+
+# Resolve package dependencies via rosdep, then build.
+RUN . /opt/ros/kilted/setup.sh && \
+    rosdep update && \
+    rosdep install --from-paths src --ignore-src -y && \
+    colcon build --symlink-install
 
 # --- Entrypoint ---
-# Source the workspace so all packages are available on shell entry.
-#
-# ENTRYPOINT ["/bin/bash", "-c", "source /ws/install/setup.bash && exec bash"]
+# Source the workspace overlay so all packages are available.
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["bash"]
