@@ -4,7 +4,7 @@ Architecture and design decisions. More to come...
 
 ## High-Level Architecture
 
-Six ROS 2 nodes running in a Docker container, communicating via DDS topics, TF2 transforms, and services:
+Six ROS 2 (Kilted Kaiju) nodes running in a Docker container, communicating via DDS topics, TF2 transforms, and services:
 
 ```
 RealSense D435i (RGB + Depth + IMU)
