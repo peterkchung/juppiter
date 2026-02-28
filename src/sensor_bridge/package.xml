@@ -6,7 +6,7 @@
   <description>Replays EuRoC MAV datasets as ROS 2 sensor topics with stereo depth.</description>
 
   <maintainer email="peter@arconiclabs.com">peter</maintainer>
-  <license>TODO</license>
+  <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

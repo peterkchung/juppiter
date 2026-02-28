@@ -100,4 +100,4 @@ See [DESIGN.md](DESIGN.md) for architecture notes.
 
 ## License
 
-tbd
+Apache-2.0. See [LICENSE](LICENSE).
