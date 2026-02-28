@@ -1,12 +1,10 @@
 # About: Compose config for juppiter dev container.
-# Handles display forwarding, source mounts, and device access.
+# Handles display forwarding and source mounts for live editing.
 #
-# STATUS: Placeholder — not yet functional.
-#
-# Usage (once functional):
-#   docker compose build
-#   docker compose up
-#   docker compose exec dev bash
+# Usage:
+#   docker compose -f docker/docker-compose.yml build
+#   docker compose -f docker/docker-compose.yml up -d
+#   docker compose -f docker/docker-compose.yml exec dev bash
 
 services:
   dev:
@@ -15,30 +13,20 @@ services:
       dockerfile: docker/Dockerfile.dev
     container_name: juppiter-dev
 
-    # --- Source mounts ---
-    # Live-mount source so edits on host are reflected immediately.
-    #
-    # volumes:
-    #   - ../src:/ws/src
-    #   - ../config:/ws/config
-    #   - ../launch:/ws/launch
+    # Live-mount source so edits on host are reflected without rebuild.
+    # Run `colcon build` inside the container after changes.
+    # WSLg mounts allow GUI apps (RViz2) to render on host display.
+    volumes:
+      - ../src:/ws/src
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /mnt/wslg:/mnt/wslg
 
-    # --- WSLg display forwarding ---
-    # Allows GUI apps (RViz2) inside the container to render on host.
-    #
-    # environment:
-    #   - DISPLAY=${DISPLAY}
-    #   - WAYLAND_DISPLAY=${WAYLAND_DISPLAY}
-    # volumes (additional):
-    #   - /tmp/.X11-unix:/tmp/.X11-unix
-    #   - /mnt/wslg:/mnt/wslg
+    # WSLg display forwarding for RViz2 and rqt.
+    environment:
+      - DISPLAY=${DISPLAY}
+      - WAYLAND_DISPLAY=${WAYLAND_DISPLAY}
+      - XDG_RUNTIME_DIR=/tmp
 
-    # --- RealSense USB access (when hardware arrives) ---
-    # privileged: true
-
-    # --- Network ---
-    # Host network simplifies ROS 2 DDS discovery.
-    # network_mode: host
-
+    network_mode: host
     stdin_open: true
     tty: true
