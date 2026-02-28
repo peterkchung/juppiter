@@ -1,0 +1,7 @@
+# About: Service for querying the semantic map by natural language.
+
+string query
+float32 max_distance  # 0 = unlimited
+---
+ObjectResult[] results
+string error

@@ -1,0 +1,44 @@
+# About: Compose config for juppiter dev container.
+# Handles display forwarding, source mounts, and device access.
+#
+# STATUS: Placeholder — not yet functional.
+#
+# Usage (once functional):
+#   docker compose build
+#   docker compose up
+#   docker compose exec dev bash
+
+services:
+  dev:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+    container_name: juppiter-dev
+
+    # --- Source mounts ---
+    # Live-mount source so edits on host are reflected immediately.
+    #
+    # volumes:
+    #   - ../src:/ws/src
+    #   - ../config:/ws/config
+    #   - ../launch:/ws/launch
+
+    # --- WSLg display forwarding ---
+    # Allows GUI apps (RViz2) inside the container to render on host.
+    #
+    # environment:
+    #   - DISPLAY=${DISPLAY}
+    #   - WAYLAND_DISPLAY=${WAYLAND_DISPLAY}
+    # volumes (additional):
+    #   - /tmp/.X11-unix:/tmp/.X11-unix
+    #   - /mnt/wslg:/mnt/wslg
+
+    # --- RealSense USB access (when hardware arrives) ---
+    # privileged: true
+
+    # --- Network ---
+    # Host network simplifies ROS 2 DDS discovery.
+    # network_mode: host
+
+    stdin_open: true
+    tty: true
