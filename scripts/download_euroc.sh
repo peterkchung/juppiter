@@ -5,8 +5,20 @@
 
 set -euo pipefail
 
-BASE_URL="http://robotics.ethz.ch/~asl-datasets/ijrr_euroc_mav_dataset"
 DATA_DIR="$(cd "$(dirname "$0")/.." && pwd)/data"
+
+# ETH Research Collection bundle URLs (individual sequence downloads are no longer available)
+declare -A BUNDLE_URLS=(
+  ["MH"]="https://www.research-collection.ethz.ch/bitstreams/7b2419c1-62b5-4714-b7f8-485e5fe3e5fe/download"
+  ["V1"]="https://www.research-collection.ethz.ch/bitstreams/02ecda9a-298f-498b-970c-b7c44334d880/download"
+  ["V2"]="https://www.research-collection.ethz.ch/bitstreams/ea12bc01-3677-4b4c-853d-87c7870b8c44/download"
+)
+
+declare -A BUNDLE_NAMES=(
+  ["MH"]="machine_hall"
+  ["V1"]="vicon_room1"
+  ["V2"]="vicon_room2"
+)
 
 SEQUENCES=(
   MH_01_easy MH_02_easy MH_03_medium MH_04_difficult MH_05_difficult
@@ -21,6 +33,9 @@ usage() {
   printf "  %s\n" "${SEQUENCES[@]}"
   echo ""
   echo "If no sequence is specified, downloads MH_01_easy."
+  echo ""
+  echo "Note: ETH bundles all sequences per environment into one zip."
+  echo "Downloading any MH sequence downloads all MH sequences (~12 GB)."
 }
 
 validate_sequence() {
@@ -33,27 +48,51 @@ validate_sequence() {
   exit 1
 }
 
-download_sequence() {
-  local seq="$1"
-  local dest="$DATA_DIR/$seq"
+get_bundle_key() {
+  echo "${1%%_*}"
+}
 
-  if [[ -d "$dest/mav0" ]]; then
-    echo "Skipping $seq (already exists at $dest/mav0)"
+download_bundle() {
+  local bundle_key="$1"
+  local url="${BUNDLE_URLS[$bundle_key]}"
+  local name="${BUNDLE_NAMES[$bundle_key]}"
+  local zipfile="$DATA_DIR/${name}.zip"
+  local marker="$DATA_DIR/.${bundle_key}_downloaded"
+
+  if [[ -f "$marker" ]]; then
     return 0
   fi
 
-  local url="$BASE_URL/${seq}/${seq}.zip"
-  local zipfile="$DATA_DIR/${seq}.zip"
-
-  echo "Downloading $seq..."
+  echo "Downloading $name bundle (this may take a while)..."
   mkdir -p "$DATA_DIR"
-  wget -q --show-progress -O "$zipfile" "$url"
+  wget --progress=bar:force -O "$zipfile" "$url"
 
-  echo "Extracting $seq..."
-  unzip -q -o "$zipfile" -d "$dest"
+  echo "Extracting $name bundle..."
+  unzip -q -o "$zipfile" -d "$DATA_DIR"
   rm "$zipfile"
 
-  echo "$seq ready at $dest/mav0"
+  # Extract inner sequence zips (bundle contains per-sequence zips)
+  local bundle_dir="$DATA_DIR/$name"
+  if [[ -d "$bundle_dir" ]]; then
+    for seq_dir in "$bundle_dir"/*/; do
+      local seq_name
+      seq_name="$(basename "$seq_dir")"
+      local inner_zip="$seq_dir/${seq_name}.zip"
+      if [[ -f "$inner_zip" ]]; then
+        echo "Extracting $seq_name..."
+        unzip -q -o "$inner_zip" -d "$seq_dir"
+        rm "$inner_zip"
+      fi
+      # Symlink to flat path: data/MH_01_easy -> data/machine_hall/MH_01_easy
+      local link="$DATA_DIR/$seq_name"
+      if [[ ! -e "$link" ]]; then
+        ln -s "$name/$seq_name" "$link"
+      fi
+    done
+  fi
+
+  touch "$marker"
+  echo "$name bundle extracted."
 }
 
 # Default to MH_01_easy if no args
@@ -63,9 +102,26 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   exit 0
 fi
 
+# Determine which bundles we need
+declare -A needed_bundles
 for seq in "${targets[@]}"; do
   validate_sequence "$seq"
-  download_sequence "$seq"
+  key=$(get_bundle_key "$seq")
+  needed_bundles[$key]=1
+done
+
+# Download required bundles
+for key in "${!needed_bundles[@]}"; do
+  download_bundle "$key"
+done
+
+# Verify requested sequences exist
+for seq in "${targets[@]}"; do
+  if [[ -d "$DATA_DIR/$seq/mav0" ]]; then
+    echo "$seq ready at $DATA_DIR/$seq/mav0"
+  else
+    echo "Warning: $seq not found after extraction. Check $DATA_DIR for contents."
+  fi
 done
 
 echo "Done."

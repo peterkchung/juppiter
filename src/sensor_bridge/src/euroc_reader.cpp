@@ -91,10 +91,11 @@ void EurocReader::load_image_csv(
     if (std::getline(ss, ts_str, ',') && std::getline(ss, filename)) {
       ImageEntry entry;
       entry.timestamp_ns = std::stoll(ts_str);
-      // Trim whitespace from filename
+      // Trim whitespace and carriage returns from filename
       auto start = filename.find_first_not_of(" \t\r\n");
+      auto end = filename.find_last_not_of(" \t\r\n");
       if (start != std::string::npos) {
-        filename = filename.substr(start);
+        filename = filename.substr(start, end - start + 1);
       }
       entry.filename = filename;
       entries.push_back(entry);
