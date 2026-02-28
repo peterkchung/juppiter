@@ -29,14 +29,13 @@ target_include_directories(sensor_bridge_node PRIVATE
   ${OpenCV_INCLUDE_DIRS}
 )
 
-ament_target_dependencies(sensor_bridge_node
-  rclcpp
-  sensor_msgs
-  cv_bridge
-  image_transport
+target_link_libraries(sensor_bridge_node
+  ${sensor_msgs_TARGETS}
+  cv_bridge::cv_bridge
+  image_transport::image_transport
+  rclcpp::rclcpp
+  ${OpenCV_LIBS}
 )
-
-target_link_libraries(sensor_bridge_node ${OpenCV_LIBS})
 
 install(TARGETS sensor_bridge_node
   DESTINATION lib/${PROJECT_NAME}

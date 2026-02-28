@@ -5,6 +5,7 @@
 
 #include <array>
 
+#include <opencv2/calib3d.hpp>
 #include <opencv2/core.hpp>
 
 namespace sensor_bridge {
