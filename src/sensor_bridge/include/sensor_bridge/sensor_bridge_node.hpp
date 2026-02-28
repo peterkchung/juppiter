@@ -20,6 +20,7 @@ class StereoDepth;
 class SensorBridgeNode : public rclcpp::Node {
  public:
   SensorBridgeNode();
+  ~SensorBridgeNode() override;
 
  private:
   void timer_callback();

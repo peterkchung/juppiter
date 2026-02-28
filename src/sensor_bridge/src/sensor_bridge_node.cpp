@@ -17,6 +17,8 @@ using namespace std::chrono_literals;
 
 namespace sensor_bridge {
 
+SensorBridgeNode::~SensorBridgeNode() = default;
+
 SensorBridgeNode::SensorBridgeNode() : Node("sensor_bridge_node") {
   // Declare parameters
   declare_parameter<std::string>("dataset_path", "");
