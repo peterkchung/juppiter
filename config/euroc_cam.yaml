@@ -1,0 +1,48 @@
+# About: Camera intrinsics, stereo baseline, and playback defaults for EuRoC MAV datasets.
+# Values from the EuRoC machine hall sequences (cam0/cam1, 752x480 global shutter).
+# These are loaded as ROS 2 parameters by sensor_bridge_node.
+
+sensor_bridge_node:
+  ros__parameters:
+    # --- Playback ---
+    dataset_path: ""
+    playback_rate: 1.0       # 1.0 = real-time, 0.0 = fast-as-possible
+    loop: false
+    publish_depth: true
+
+    # --- Frame ---
+    frame_id: "camera_link"
+
+    # --- Image dimensions ---
+    image_width: 752
+    image_height: 480
+
+    # --- Camera 0 (left) intrinsics ---
+    cam0_fx: 458.654
+    cam0_fy: 457.296
+    cam0_cx: 367.215
+    cam0_cy: 248.375
+    cam0_d: [-0.28340811, 0.07395907, 0.00019359, 1.76187114e-05, 0.0]
+
+    # --- Camera 1 (right) intrinsics ---
+    cam1_fx: 457.587
+    cam1_fy: 456.134
+    cam1_cx: 379.999
+    cam1_cy: 255.238
+    cam1_d: [-0.28368365, 0.07451284, -0.00010473, -3.55590700e-05, 0.0]
+
+    # --- Stereo extrinsics ---
+    # Translation from cam0 to cam1 in meters (baseline ~110mm).
+    baseline_m: 0.110074
+    # Rotation from cam0 to cam1 (3x3 row-major, near-identity for EuRoC).
+    R_cam0_cam1: [
+      0.9999, 0.0098, -0.0074,
+     -0.0099, 0.9999, -0.0044,
+      0.0074, 0.0045,  0.9999
+    ]
+    # Translation vector cam0 to cam1 [x, y, z] in meters.
+    T_cam0_cam1: [-0.110074, 0.000399, 0.000853]
+
+    # --- StereoSGBM tuning ---
+    num_disparities: 96     # must be divisible by 16
+    block_size: 11           # odd number, typically 5-15

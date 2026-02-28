@@ -12,6 +12,10 @@ FROM osrf/ros:kilted-desktop
 RUN apt-get update && apt-get install -y \
     python3-colcon-common-extensions \
     python3-rosdep \
+    ros-kilted-cv-bridge \
+    ros-kilted-image-transport \
+    wget \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Workspace ---
