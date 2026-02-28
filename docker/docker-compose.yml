@@ -18,6 +18,10 @@ services:
     # WSLg mounts allow GUI apps (RViz2) to render on host display.
     volumes:
       - ../src:/ws/src
+      - ../config:/ws/config
+      - ../launch:/ws/launch
+      - ../data:/ws/data
+      - ../scripts:/ws/scripts
       - /tmp/.X11-unix:/tmp/.X11-unix
       - /mnt/wslg:/mnt/wslg
 
