@@ -1,11 +1,19 @@
 # juppiter: Real-Time Edge-Computed Object Pose Tracking
 
-A perception system for mobile robots that localizes in dynamic environments, builds semantically labeled maps, and tracks 6D object poses in real-time. Targeting a Raspberry Pi 5 with an Intel RealSense D435i.
+An exploratory perception stack for mobile robots. The project investigates how far we can push dynamic semantic SLAM and real-time 6D object tracking on edge hardware (Raspberry Pi 5 + Intel RealSense D435i).
+
+## Objectives
+
+- Build a reproducible ROS 2 pipeline for dynamic-environment localization and mapping.
+- Add semantic understanding so maps contain object meaning, not just geometry.
+- Track object 6D poses in real time for manipulation and scene understanding.
+- Expose a query interface for spatial questions in natural language.
+- Validate each capability incrementally through dataset replay before on-robot deployment.
 
 ## Status
 
-Early development. Workspace scaffolding and Docker dev environment are functional.
-Early development. EuRoC dataset replay pipeline is operational.
+Early development and active discovery phase.
+Workspace scaffolding, Docker environment, and EuRoC replay pipeline are operational.
 
 ## Stack
 
