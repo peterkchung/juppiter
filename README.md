@@ -64,27 +64,56 @@ juppiter/
 
 **Prerequisites:** Docker and Docker Compose. WSL2 with WSLg for GUI forwarding on Windows.
 
+### Container Workflow
+
+Build the dev container (once, or when Dockerfile changes):
+
 ```bash
-# Build the dev container
 docker compose -f docker/docker-compose.yml build
+```
 
-# Open a shell in the container
-docker compose -f docker/docker-compose.yml run --rm dev bash
+Start the container in the background:
 
-# Rebuild packages after changes (inside container)
+```bash
+docker compose -f docker/docker-compose.yml up -d
+```
+
+Enter the container to develop/test:
+
+```bash
+docker compose -f docker/docker-compose.yml exec dev bash
+```
+
+**Inside the container:** Your prompt becomes `root@juppiter-dev:/ws#`. ROS 2 and your packages are ready.
+
+**Exit the container:** Type `exit` or press `Ctrl+D`. The container keeps running in the background.
+
+Stop the container when done:
+
+```bash
+docker compose -f docker/docker-compose.yml down
+```
+
+### Rebuilding After Code Changes
+
+Inside the container, rebuild packages:
+
+```bash
 colcon build --symlink-install
 ```
 
 ### Dataset Replay
 
+**Terminal 1** (inside container): Launch the replay node:
+
 ```bash
-# Download a EuRoC sequence (from host)
-bash scripts/download_euroc.sh MH_01_easy
-
-# Inside the container, run the replay node
 ros2 launch /ws/launch/replay.launch.py dataset_path:=/ws/data/MH_01_easy/mav0
+```
 
-# Verify topics (in another terminal)
+**Terminal 2** (new shell inside container): Verify topics are publishing:
+
+```bash
+docker compose -f docker/docker-compose.yml exec dev bash
 ros2 topic list
 ros2 topic hz /camera/color/image_raw   # ~20 Hz
 ros2 topic hz /camera/imu               # ~200 Hz
