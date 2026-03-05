@@ -198,14 +198,14 @@ overall = clamp(raw - penalty, 0.0, 1.0)
 
 ## Future Extensions
 
-### Multi-Estimator Fusion (Unit 4)
+### Multi-Estimator Fusion (Milestone 4)
 
 Add `fusion_core` package:
 - EKF-based LIO + VIO fusion
 - Covariance-weighted sensor arbitration
 - Handoff discontinuity monitoring (≤ 0.30m, ≤ 5° yaw)
 
-### Hazard Detection (Unit 5)
+### Hazard Detection (Milestone 5)
 
 Add `terrain_perception` package:
 - Lidar-based geometry analysis

@@ -8,7 +8,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-#### Modular Sensor Architecture (PRD Unit 1)
+#### Modular Sensor Architecture (PRD Milestone 1)
 - **sensor_interfaces** package — Abstract sensor driver contracts
   - `SensorDriver` interface for all sensor providers
   - `SensorCapability` enum for capability discovery
