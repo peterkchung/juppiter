@@ -11,6 +11,7 @@ find_package(sensor_interfaces REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(image_transport REQUIRED)
+find_package(pluginlib REQUIRED)
 find_package(OpenCV REQUIRED)
 
 # Library
@@ -31,6 +32,7 @@ ament_target_dependencies(${PROJECT_NAME}
   sensor_msgs
   cv_bridge
   image_transport
+  pluginlib
   OpenCV
 )
 
@@ -65,6 +67,7 @@ ament_export_dependencies(
   sensor_msgs
   cv_bridge
   image_transport
+  pluginlib
   OpenCV
 )
 

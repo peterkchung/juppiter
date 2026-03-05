@@ -28,6 +28,8 @@
 namespace sensor_core
 {
 
+using sensor_interfaces::TimeSyncStatus;
+
 /**
  * @brief Monitors time synchronization across multiple sensors.
  */

@@ -13,7 +13,7 @@
 // limitations under the License.
 // About: EuRoC MAV dataset parser implementation.
 
-#include "euroc_reader.hpp"
+#include "euroc_provider/euroc_reader.hpp"
 
 #include <fstream>
 #include <sstream>

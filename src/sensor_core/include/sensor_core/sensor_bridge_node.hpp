@@ -23,6 +23,7 @@
 
 #include <pluginlib/class_loader.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/string.hpp>
 
 #include "sensor_core/health_monitor.hpp"
 #include "sensor_core/time_synchronizer.hpp"
