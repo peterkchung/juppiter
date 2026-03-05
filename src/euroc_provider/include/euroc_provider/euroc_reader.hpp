@@ -23,7 +23,7 @@
 
 #include <opencv2/core.hpp>
 
-namespace sensor_bridge
+namespace euroc_provider
 {
 
 struct ImuSample
@@ -74,4 +74,4 @@ private:
   void load_imu_csv(const std::filesystem::path & csv_path);
 };
 
-}  // namespace sensor_bridge
+}  // namespace euroc_provider

@@ -13,7 +13,7 @@
 // limitations under the License.
 // About: EuRoC MAV dataset parser implementation.
 
-#include "euroc_reader.hpp"
+#include "euroc_provider/euroc_reader.hpp"
 
 #include <fstream>
 #include <sstream>
@@ -21,7 +21,7 @@
 
 #include <opencv2/imgcodecs.hpp>
 
-namespace sensor_bridge
+namespace euroc_provider
 {
 
 EurocReader::EurocReader(const std::string & mav0_path)
@@ -139,4 +139,4 @@ void EurocReader::load_imu_csv(const std::filesystem::path & csv_path)
   }
 }
 
-}  // namespace sensor_bridge
+}  // namespace euroc_provider

@@ -1,0 +1,5 @@
+<library path="euroc_provider">
+  <class name="euroc_provider::EurocDriver" type="euroc_provider::EurocDriver" base_class_type="sensor_interfaces::SensorDriver">
+    <description>EuRoC MAV dataset sensor driver providing stereo images and IMU data</description>
+  </class>
+</library>

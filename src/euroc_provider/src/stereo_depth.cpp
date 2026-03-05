@@ -13,12 +13,12 @@
 // limitations under the License.
 // About: Stereo rectification and StereoSGBM depth computation.
 
-#include "stereo_depth.hpp"
+#include "euroc_provider/stereo_depth.hpp"
 
 #include <opencv2/calib3d.hpp>
 #include <opencv2/imgproc.hpp>
 
-namespace sensor_bridge
+namespace euroc_provider
 {
 
 StereoDepth::StereoDepth(const StereoParams & params)
@@ -107,4 +107,4 @@ cv::Mat StereoDepth::compute(const cv::Mat & left, const cv::Mat & right) const
   return depth;
 }
 
-}  // namespace sensor_bridge
+}  // namespace euroc_provider

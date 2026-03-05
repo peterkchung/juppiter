@@ -21,7 +21,7 @@
 #include <opencv2/calib3d.hpp>
 #include <opencv2/core.hpp>
 
-namespace sensor_bridge
+namespace euroc_provider
 {
 
 struct StereoParams
@@ -80,4 +80,4 @@ private:
   cv::Ptr<cv::StereoSGBM> sgbm_;
 };
 
-}  // namespace sensor_bridge
+}  // namespace euroc_provider
