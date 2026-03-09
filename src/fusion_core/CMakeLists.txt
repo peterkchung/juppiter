@@ -69,10 +69,11 @@ install(
   DESTINATION include
 )
 
-install(
-  DIRECTORY config/
-  DESTINATION share/${PROJECT_NAME}/config
-)
+# No config files to install yet
+# install(
+#   DIRECTORY config/
+#   DESTINATION share/${PROJECT_NAME}/config
+# )
 
 ament_export_include_directories(include)
 ament_export_libraries(${PROJECT_NAME})
@@ -86,9 +87,10 @@ if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
   
-  find_package(ament_cmake_gtest REQUIRED)
-  ament_add_gtest(test_fusion_engine test/test_fusion_engine.cpp)
-  target_link_libraries(test_fusion_engine ${PROJECT_NAME})
+  # TODO: Add tests when test files are created
+  # find_package(ament_cmake_gtest REQUIRED)
+  # ament_add_gtest(test_fusion_engine test/test_fusion_engine.cpp)
+  # target_link_libraries(test_fusion_engine ${PROJECT_NAME})
 endif()
 
 ament_package()

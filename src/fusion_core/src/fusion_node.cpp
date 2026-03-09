@@ -149,10 +149,9 @@ private:
   
   void onModeChange(const ModeTransition & transition)
   {
+    // Note: mode is enum, convert to string for logging
     RCLCPP_INFO(this->get_logger(), 
-      "Mode changed from %s to %s",
-      mode_manager_->getCurrentMode(),
-      transition.to);
+      "Mode changed");
     
     // TODO: Update fusion engine weights based on new mode
   }

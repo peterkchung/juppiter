@@ -39,10 +39,11 @@ install(TARGETS kinetic_estimator_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
-install(
-  DIRECTORY include/
-  DESTINATION include
-)
+# No headers to install yet (line kept for future header additions)
+# install(
+#   DIRECTORY include/
+#   DESTINATION include
+# )
 
 install(
   DIRECTORY config/
