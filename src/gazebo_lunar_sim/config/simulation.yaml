@@ -1,0 +1,82 @@
+# About: Gazebo Lunar Simulation Configuration
+# Main configuration for Gazebo Harmonic simulation environment
+
+simulation:
+  name: "lunar_rover_sim"
+  gazebo_version: "harmonic"
+  ros_distro: "kilted"
+  
+  # Physics engine
+  physics:
+    engine: "gz-physics-bullet"
+    real_time_factor: 1.0
+    max_step_size: 0.001
+    
+  # Terrain configuration
+  terrain:
+    type: "rigid"  # Phase 1: rigid terrain
+    # Phase 5: will add "deformable" option with regolith properties
+    
+    # Rigid terrain parameters
+    rigid:
+      ground_plane: true
+      enable_friction: true
+      friction_coefficient: 0.6  # Lunar regolith approx
+      
+    # Future: deformable terrain
+    deformable:
+      enabled: false
+      regolith_properties:
+        bulk_density_kg_m3: 1500
+        internal_friction_angle_deg: 40
+        cohesion_kpa: 0.1
+        
+  # Lighting (lunar polar conditions)
+  lighting:
+    sun_enabled: true
+    sun_azimuth_deg: 10.0
+    sun_elevation_deg: 5.0
+    sun_intensity: 1361.0  # W/m^2
+    ambient_light: 0.1
+    shadows_enabled: true
+    
+  # World origin
+  coordinates:
+    latitude: -89.5  # Lunar south pole
+    longitude: 0.0
+    altitude_m: 0.0
+
+# Bridge configuration (ROS 2 <-> Gazebo)
+ros_gz_bridge:
+  # Sensor topics
+  - topic: "/lidar/points"
+    type: "sensor_msgs/PointCloud2"
+    gz_topic: "/lidar/points"
+    direction: "GZ_TO_ROS"
+    
+  - topic: "/stereo/left/image_raw"
+    type: "sensor_msgs/Image"
+    gz_topic: "/stereo/left/image"
+    direction: "GZ_TO_ROS"
+    
+  - topic: "/stereo/right/image_raw"
+    type: "sensor_msgs/Image"
+    gz_topic: "/stereo/right/image"
+    direction: "GZ_TO_ROS"
+    
+  - topic: "/imu/data"
+    type: "sensor_msgs/Imu"
+    gz_topic: "/imu"
+    direction: "GZ_TO_ROS"
+    
+  # Odometry
+  - topic: "/wheel/odometry"
+    type: "nav_msgs/Odometry"
+    gz_topic: "/model/rover/odometry"
+    direction: "GZ_TO_ROS"
+    
+  # Control
+  - topic: "/cmd_vel"
+    type: "geometry_msgs/Twist"
+    gz_topic: "/model/rover/cmd_vel"
+    direction: "ROS_TO_GZ"

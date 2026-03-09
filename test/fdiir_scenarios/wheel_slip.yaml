@@ -1,0 +1,86 @@
+# About: Wheel Slip Test Scenario
+# Tests fusion system response to wheel odometry degradation on regolith
+
+scenario_name: "wheel_slip"
+description: "Verify kinematic estimator health drops and fusion compensates on slippery terrain"
+duration_seconds: 60
+
+# Test metadata
+category: "wheel_degradation"
+priority: "medium"
+tier: ["dev", "edge"]
+
+# Fault injection schedule
+fault_injection:
+  - time_sec: 10.0
+    type: "wheel_slip_injection"
+    target: "/wheel/odometry"
+    parameters:
+      slip_factor: 0.4  # 40% slip on regolith
+      terrain_type: "lunar_regolith"
+    duration_sec: 30.0
+    description: "High wheel slip on simulated regolith"
+    
+  - time_sec: 45.0
+    type: "wheel_slip_injection"
+    target: "/wheel/odometry"
+    parameters:
+      slip_factor: 0.6  # Severe slip
+      terrain_type: "lunar_regolith"
+    duration_sec: 10.0
+    description: "Severe slip, should degrade kinematic weight"
+    
+  - time_sec: 55.0
+    type: "sensor_recovery"
+    target: "/wheel/odometry"
+    description: "Wheels regain traction"
+
+# Expected behavior assertions
+expected_behavior:
+  - at_time: 12.0
+    kinematic_health: "degraded"  # < 0.75
+    fusion_weight_shift: "toward_lio_and_vio"
+    description: "Fusion should reduce kinematic weight, increase LIO/VIO"
+    
+  - at_time: 47.0
+    kinematic_health: "severely_degraded"  # < 0.55
+    kinematic_weight: "minimal"
+    description: "Severe slip should minimize kinematic contribution"
+    
+  - at_time: 56.0
+    kinematic_health: "recovering"
+    description: "Kinematic estimator recovers as slip reduces"
+
+# Success criteria
+success_criteria:
+  max_pose_error_m: 0.5
+  kinematic_weight_reduces_during_slip: true
+  fusion_compensates_for_wheel_error: true
+  
+# Metrics to collect
+metrics:
+  - name: "kinematic_health_score"
+    type: "health_metric"
+    source: "kinematic"
+    
+  - name: "kinematic_weight_in_fusion"
+    type: "fusion_weight"
+    source: "fusion"
+    
+  - name: "wheel_odom_vs_ground_truth"
+    type: "pose_error"
+    reference: "ground_truth"
+    
+  - name: "fused_odom_vs_ground_truth"
+    type: "pose_error"
+    reference: "ground_truth"
+
+# Pass/fail criteria
+pass_criteria:
+  - kinematic_weight_reduces_below_0.1: true
+  - fused_pose_error_remains_low: true
+  - no_safe_stop_triggered: true
+  
+fail_criteria:
+  - kinematic_weight_remains_high: true  # Failed to detect slip
+  - pose_drift_exceeds_1m: true

@@ -1,0 +1,90 @@
+# About: LiDAR Dropout Test Scenario
+# Tests fusion system response to LiDAR sensor failure
+
+scenario_name: "lidar_dropout"
+description: "Verify VIO takeover when LiDAR sensor drops out"
+duration_seconds: 60
+
+# Test metadata
+category: "sensor_failure"
+priority: "high"
+tier: ["dev", "edge"]
+
+# Fault injection schedule
+fault_injection:
+  - time_sec: 10.0
+    type: "sensor_dropout"
+    target: "/lidar/points"
+    duration_sec: 5.0
+    description: "Complete LiDAR dropout for 5 seconds"
+    
+  - time_sec: 25.0
+    type: "rate_degradation"
+    target: "/lidar/points"
+    new_rate_hz: 2.0
+    duration_sec: 10.0
+    description: "LiDAR rate reduced to 2Hz (severe degradation)"
+    
+  - time_sec: 45.0
+    type: "sensor_recovery"
+    target: "/lidar/points"
+    description: "LiDAR returns to normal operation"
+
+# Expected behavior assertions
+expected_behavior:
+  - at_time: 10.5
+    expected_mode: "degraded_lio"
+    expected_primary: "vio"
+    mode_switch_deadline_sec: 2.0
+    description: "Should switch to VIO within 2 seconds of dropout"
+    
+  - at_time: 15.0
+    expected_mode: "nominal"
+    expected_primary: "lio"
+    description: "Should return to nominal after LiDAR recovers"
+    
+  - at_time: 26.0
+    expected_mode: "degraded_lio"
+    expected_primary: "vio"
+    description: "Should detect rate degradation and switch to VIO"
+    
+  - at_time: 46.0
+    expected_mode: "nominal"
+    expected_primary: "lio"
+    description: "Should recover to nominal mode"
+
+# Success criteria
+success_criteria:
+  max_pose_error_m: 0.5
+  max_mode_switch_latency_sec: 2.0
+  min_lio_health_during_fault: 0.3
+  max_recovery_time_sec: 3.0
+  
+# Metrics to collect
+metrics:
+  - name: "mode_switch_latency"
+    type: "duration"
+    description: "Time from fault to mode switch"
+    
+  - name: "pose_drift_during_fault"
+    type: "pose_error"
+    reference: "ground_truth"
+    
+  - name: "lio_health_score"
+    type: "health_metric"
+    source: "lio"
+    
+  - name: "vio_health_score"
+    type: "health_metric"
+    source: "vio"
+
+# Pass/fail criteria
+pass_criteria:
+  - all_mode_switches_completed: true
+  - max_pose_error_m: 0.5
+  - no_safe_stop_triggered: true
+  
+fail_criteria:
+  - safe_stop_triggered_unexpectedly: true
+  - pose_error_exceeds_1m: true
+  - mode_oscillation_count: 5  # More than 5 mode switches in 60s

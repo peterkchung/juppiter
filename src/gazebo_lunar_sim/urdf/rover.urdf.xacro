@@ -1,0 +1,249 @@
+# About: Lunar Rover URDF/Xacro
+# Differential drive rover with LiDAR, stereo camera, and IMU
+# Designed for Gazebo Harmonic simulation
+
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="lunar_rover">
+
+  <!-- About: Rover Dimensions -->
+  <xacro:property name="rover_length" value="0.8"/>
+  <xacro:property name="rover_width" value="0.6"/>
+  <xacro:property name="rover_height" value="0.4"/>
+  <xacro:property name="wheel_radius" value="0.1"/>
+  <xacro:property name="wheel_width" value="0.08"/>
+  <xacro:property name="wheel_separation" value="0.5"/>
+  <xacro:property name="wheel_mass" value="0.5"/>
+  <xacro:property name="body_mass" value="5.0"/>
+  
+  <!-- About: Base Link -->
+  <link name="base_link">
+    <visual>
+      <geometry>
+        <box size="${rover_length} ${rover_width} ${rover_height}"/>
+      </geometry>
+      <material name="aluminum">
+        <color rgba="0.8 0.8 0.9 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="${rover_length} ${rover_width} ${rover_height}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="${body_mass}"/>
+      <inertia ixx="0.1" ixy="0.0" ixz="0.0"
+               iyy="0.1" iyz="0.0"
+               izz="0.1"/>
+    </inertial>
+  </link>
+  
+  <!-- About: Left Wheel -->
+  <link name="left_wheel">
+    <visual>
+      <geometry>
+        <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+      </geometry>
+      <material name="black">
+        <color rgba="0.1 0.1 0.1 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="${wheel_mass}"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+               iyy="0.01" iyz="0.0"
+               izz="0.01"/>
+    </inertial>
+  </link>
+  
+  <joint name="left_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="left_wheel"/>
+    <origin xyz="0 ${wheel_separation/2} ${-wheel_radius}" rpy="${pi/2} 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  
+  <!-- About: Right Wheel -->
+  <link name="right_wheel">
+    <visual>
+      <geometry>
+        <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+      </geometry>
+      <material name="black">
+        <color rgba="0.1 0.1 0.1 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="${wheel_mass}"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+               iyy="0.01" iyz="0.0"
+               izz="0.01"/>
+    </inertial>
+  </link>
+  
+  <joint name="right_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="right_wheel"/>
+    <origin xyz="0 ${-wheel_separation/2} ${-wheel_radius}" rpy="${pi/2} 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  
+  <!-- About: LiDAR Mount -->
+  <link name="lidar_link">
+    <visual>
+      <geometry>
+        <cylinder radius="0.04" length="0.08"/>
+      </geometry>
+      <material name="sensor">
+        <color rgba="0.2 0.5 0.8 1.0"/>
+      </material>
+    </visual>
+  </link>
+  
+  <joint name="lidar_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="lidar_link"/>
+    <origin xyz="0.3 0 0.3" rpy="0 0 0"/>
+  </joint>
+  
+  <!-- About: Left Camera -->
+  <link name="left_camera_link">
+    <visual>
+      <geometry>
+        <box size="0.05 0.02 0.02"/>
+      </geometry>
+      <material name="camera">
+        <color rgba="0.1 0.1 0.1 1.0"/>
+      </material>
+    </visual>
+  </link>
+  
+  <joint name="left_camera_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="left_camera_link"/>
+    <origin xyz="0.35 0.075 0.25" rpy="0 0 0"/>
+  </joint>
+  
+  <!-- About: Right Camera -->
+  <link name="right_camera_link">
+    <visual>
+      <geometry>
+        <box size="0.05 0.02 0.02"/>
+      </geometry>
+      <material name="camera">
+        <color rgba="0.1 0.1 0.1 1.0"/>
+      </material>
+    </visual>
+  </link>
+  
+  <joint name="right_camera_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="right_camera_link"/>
+    <origin xyz="0.35 -0.075 0.25" rpy="0 0 0"/>
+  </joint>
+  
+  <!-- About: IMU Mount -->
+  <link name="imu_link">
+    <visual>
+      <geometry>
+        <box size="0.03 0.03 0.01"/>
+      </geometry>
+      <material name="sensor">
+        <color rgba="0.2 0.5 0.8 1.0"/>
+      </material>
+    </visual>
+  </link>
+  
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="imu_link"/>
+    <origin xyz="0 0 0.1" rpy="0 0 0"/>
+  </joint>
+  
+  <!-- About: Gazebo Plugins -->
+  <gazebo>
+    <!-- Differential Drive Plugin -->
+    <plugin name="diff_drive" filename="libgz_ros2_control-system">
+      <parameters>
+        $(find gazebo_lunar_sim)/config/diff_drive_controller.yaml
+      </parameters>
+    </plugin>
+    
+    <!-- LiDAR Plugin -->
+    <plugin name="lidar" filename="libgazebo_ros_lidar">
+      <topic>/lidar/points</topic>
+      <update_rate>10</update_rate>
+      <ray>
+        <scan>
+          <horizontal>
+            <samples>3600</samples>
+            <resolution>1</resolution>
+            <min_angle>-3.14159</min_angle>
+            <max_angle>3.14159</max_angle>
+          </horizontal>
+          <vertical>
+            <samples>590</samples>
+            <resolution>1</resolution>
+            <min_angle>-0.5149</min_angle>
+            <max_angle>0.5149</max_angle>
+          </vertical>
+        </scan>
+        <range>
+          <min>0.1</min>
+          <max>100.0</max>
+        </range>
+      </ray>
+    </plugin>
+    
+    <!-- Stereo Camera Plugin -->
+    <plugin name="stereo_camera" filename="libgazebo_ros_camera">
+      <camera_name>stereo</camera_name>
+      <image_topic>image_raw</image_topic>
+      <camera_info_topic>camera_info</camera_info_topic>
+      <update_rate>20</update_rate>
+      <horizontal_fov>1.047</horizontal_fov>
+      <image>
+        <width>1280</width>
+        <height>720</height>
+      </image>
+    </plugin>
+    
+    <!-- IMU Plugin -->
+    <plugin name="imu" filename="libgazebo_ros_imu_sensor">
+      <topic>/imu/data</topic>
+      <update_rate>200</update_rate>
+      <imu>
+        <angular_velocity_stddev>0.02</angular_velocity_stddev>
+        <linear_acceleration_stddev>0.002</linear_acceleration_stddev>
+      </imu>
+    </plugin>
+  </gazebo>
+  
+  <!-- About: ROS 2 Control -->
+  <ros2_control name="GazeboSystem" type="system">
+    <hardware>
+      <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+    </hardware>
+    <joint name="left_wheel_joint">
+      <command_interface name="velocity"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="right_wheel_joint">
+      <command_interface name="velocity"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+  </ros2_control>
+
+</robot>
