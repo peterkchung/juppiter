@@ -324,7 +324,7 @@ git push origin v1.0.0
 ## Questions?
 
 - Open an [issue](https://github.com/opencode/juppiter/issues)
-- Check [existing documentation](../architecture/)
+- Check [existing documentation](../architecture/index.md)
 - Review [troubleshooting guide](troubleshooting.md)
 
 ## License

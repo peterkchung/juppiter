@@ -35,6 +35,6 @@ ros2 launch gazebo_lunar_sim simulation.launch.py scenario:=lidar_dropout
 
 ## Getting Help
 
-- Architecture questions → [Architecture section](../architecture/)
-- Development workflow → [Development section](../development/)
-- API reference → [Reference section](../reference/)
+- Architecture questions → [Architecture section](../architecture/index.md)
+- Development workflow → [Development section](../development/index.md)
+- API reference → [Reference section](../reference/index.md)
