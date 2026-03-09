@@ -22,7 +22,8 @@
 
   <build_depend>eigen</build_depend>
   <build_depend>libopencv-dev</build_depend>
-  <build_depend>libpangolin-dev</build_depend>
+  <!-- Pangolin is optional - for visualization only -->
+  <!-- <build_depend>libpangolin-dev</build_depend> -->
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

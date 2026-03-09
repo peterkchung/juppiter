@@ -27,15 +27,24 @@ find_package(OpenCV REQUIRED)
 # Eigen
 find_package(Eigen3 REQUIRED)
 
-# Pangolin (for ORB-SLAM3 visualization)
-find_package(Pangolin REQUIRED)
+# Pangolin (optional - for ORB-SLAM3 visualization)
+find_package(Pangolin QUIET)
+if(Pangolin_FOUND)
+  message(STATUS "Pangolin found - enabling visualization")
+  add_definitions(-DENABLE_PANGOLIN)
+else()
+  message(STATUS "Pangolin not found - building without visualization")
+endif()
 
 include_directories(
   include
   ${OpenCV_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIRS}
-  ${Pangolin_INCLUDE_DIRS}
 )
+
+if(Pangolin_FOUND)
+  include_directories(${Pangolin_INCLUDE_DIRS})
+endif()
 
 add_library(${PROJECT_NAME} SHARED
   src/orb_slam3_estimator.cpp
@@ -51,8 +60,11 @@ target_include_directories(${PROJECT_NAME} PUBLIC
   $<INSTALL_INTERFACE:include>
   ${OpenCV_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIRS}
-  ${Pangolin_INCLUDE_DIRS}
 )
+
+if(Pangolin_FOUND)
+  target_include_directories(${PROJECT_NAME} PUBLIC ${Pangolin_INCLUDE_DIRS})
+endif()
 
 target_link_libraries(${PROJECT_NAME}
   rclcpp::rclcpp
@@ -66,8 +78,11 @@ target_link_libraries(${PROJECT_NAME}
   cv_bridge::cv_bridge
   image_transport::image_transport
   ${OpenCV_LIBS}
-  ${Pangolin_LIBRARIES}
 )
+
+if(Pangolin_FOUND)
+  target_link_libraries(${PROJECT_NAME} ${Pangolin_LIBRARIES})
+endif()
 
 add_executable(orb_slam3_node
   src/orb_slam3_node.cpp
