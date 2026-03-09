@@ -1,0 +1,59 @@
+# About: Fusion weight configuration for nominal operation
+# These weights are used when all sensors are healthy
+
+nominal_weights:
+  lio: 0.50
+  vio: 0.35
+  kinematic: 0.15
+
+# Weight calculation parameters
+weight_calculation:
+  # Weight = health_score / (covariance_norm + epsilon)
+  epsilon: 0.001
+  
+  # Health score penalties
+  penalties:
+    covariance_high: 0.2      # Applied if covariance_norm > 0.5
+    innovation_outlier: 0.3   # Applied if Mahalanobis > 3.0
+    sync_violation: 0.1
+    rate_drop: 0.15
+    
+  # Environmental penalties (if enabled)
+  environmental:
+    low_illumination: 0.15    # < 10 lux
+    high_dust: 0.15          # Affects lidar
+    high_thermal_drift: 0.1  # IMU temperature compensation exceeded
+
+# Mode-specific weight adjustments
+mode_adjustments:
+  degraded_lio:
+    lio: 0.10
+    vio: 0.70
+    kinematic: 0.20
+    
+  degraded_vio:
+    lio: 0.70
+    vio: 0.10
+    kinematic: 0.20
+    
+  degraded_kinematic:
+    lio: 0.60
+    vio: 0.35
+    kinematic: 0.05
+    
+  safe_stop:
+    lio: 0.0
+    vio: 0.0
+    kinematic: 1.0
+
+# Smoothing parameters
+smoothing:
+  ema_alpha: 0.25  # Exponential moving average for weight smoothing
+  max_weight_change_per_sec: 0.5
+
+# Discontinuity limits during handoffs
+handoff_limits:
+  max_position_jump_m: 0.30
+  max_yaw_jump_deg: 5.0
+  covariance_inflation_factor: 2.0
+  covariance_inflation_duration_sec: 2.0

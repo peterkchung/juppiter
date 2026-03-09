@@ -1,0 +1,83 @@
+# About: Compute profile configuration for edge deployment tier
+# Target: Raspberry Pi 5 8GB / Jetson Orin Nano 8GB
+# Purpose: Field deployment with real-time constraints
+
+compute_tier: "edge"
+tier_description: "Edge tier optimized for resource-constrained embedded platforms"
+
+# Estimator Implementations
+lio_implementation: "dlio"
+vio_implementation: "openvins"
+kinematic_implementation: "robot_localization"
+
+# Hardware Requirements
+hardware_requirements:
+  min_cpu_cores: 4
+  min_ram_gb: 4
+  recommended_ram_gb: 8
+  target_platforms:
+    - "Raspberry Pi 5 8GB"
+    - "Jetson Orin Nano 8GB"
+    - "ARM64 edge devices"
+
+# Fusion Configuration
+fusion_weights:
+  lio: 0.50        # DLIO: lighter than FAST-LIO2, no global map
+  vio: 0.35        # OpenVINS: MSCKF-based, lighter than ORB-SLAM3
+  kinematic: 0.15  # robot_localization EKF
+
+# Health Thresholds
+health_thresholds:
+  nominal: 0.75
+  degraded: 0.55
+  safe_stop: 0.0
+
+# Mode Definitions (same structure as dev, optimized algorithms)
+modes:
+  nominal:
+    min_health: 0.75
+    active_estimators: ["lio", "vio", "kinematic"]
+    primary: "lio"
+  degraded_lio:
+    min_health: 0.55
+    max_health: 0.75
+    active_estimators: ["vio", "kinematic"]
+    primary: "vio"
+  degraded_vio:
+    min_health: 0.55
+    max_health: 0.75
+    active_estimators: ["lio", "kinematic"]
+    primary: "lio"
+  safe_stop:
+    max_health: 0.55
+    active_estimators: ["kinematic"]
+    primary: "kinematic"
+    action: "initiate_stop_sequence"
+
+# FDIIR Configuration (lighter than dev tier)
+fdiir:
+  cross_validation_enabled: true
+  full_diagnostic_metrics: false  # Skip detailed metrics to save compute
+  innovation_monitoring: true
+  environmental_context: false    # Skip env analysis
+
+# Resource Optimization
+optimization:
+  dynamic_downsampling: true
+  selective_updates: true
+  skip_vio_when_lio_healthy: true
+  vio_rate_hz: 10  # Reduced from 20Hz
+  lidar_downsample_factor: 2.0
+
+# Sensor Configuration References
+sensor_configs:
+  lidar: "config/sensors/simulated_livox.yaml"
+  camera: "config/sensors/simulated_stereo.yaml"
+  imu: "config/sensors/simulated_imu.yaml"
+
+# Build Configuration
+build_flags:
+  optimization: "O3"
+  debug_symbols: false
+  profiling: false
+  strip_symbols: true

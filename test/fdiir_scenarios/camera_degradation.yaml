@@ -1,0 +1,86 @@
+# About: Camera Degradation Test Scenario
+# Tests fusion system response to visual degradation (dust, shadows, blur)
+
+scenario_name: "camera_degradation"
+description: "Verify LIO priority when vision degrades due to environmental factors"
+duration_seconds: 90
+
+# Test metadata
+category: "environmental_degradation"
+priority: "high"
+tier: ["dev", "edge"]
+
+# Fault injection schedule
+fault_injection:
+  - time_sec: 15.0
+    type: "image_quality_degradation"
+    target: "/stereo/left/image_raw"
+    parameters:
+      blur_sigma: 5.0
+      noise_sigma: 0.05
+    duration_sec: 20.0
+    description: "Motion blur and noise simulation"
+    
+  - time_sec: 45.0
+    type: "illumination_change"
+    target: "/stereo/left/image_raw"
+    parameters:
+      lux_level: 1.0  # Very low light
+    duration_sec: 25.0
+    description: "Low illumination (lunar shadow simulation)"
+    
+  - time_sec: 75.0
+    type: "sensor_recovery"
+    target: "/stereo/left/image_raw"
+    description: "Vision returns to normal"
+
+# Expected behavior assertions
+expected_behavior:
+  - at_time: 16.0
+    expected_mode: "degraded_vio"
+    expected_primary: "lio"
+    description: "Should detect quality degradation and prioritize LIO"
+    
+  - at_time: 46.0
+    expected_mode: "degraded_vio"
+    expected_primary: "lio"
+    description: "Should remain in LIO-priority mode during low light"
+    
+  - at_time: 76.0
+    expected_mode: "nominal"
+    expected_primary: "lio"
+    description: "Should return to full fusion after recovery"
+
+# Success criteria
+success_criteria:
+  max_pose_error_m: 0.5
+  min_vio_health_during_degradation: 0.4
+  lio_takes_priority_within_sec: 3.0
+  
+# Metrics to collect
+metrics:
+  - name: "vio_tracked_features"
+    type: "feature_count"
+    source: "vio"
+    
+  - name: "vio_reprojection_error"
+    type: "error_metric"
+    source: "vio"
+    
+  - name: "lio_point_density"
+    type: "point_count"
+    source: "lio"
+    
+  - name: "fusion_confidence"
+    type: "health_metric"
+    source: "fusion"
+
+# Pass/fail criteria
+pass_criteria:
+  - vio_health_drops_below_0.5: true  # VIO detects degradation
+  - lio_maintains_priority: true
+  - no_safe_stop_triggered: true
+  
+fail_criteria:
+  - vio_health_remains_high: true  # Failed to detect degradation
+  - fusion_confidence_drops_below_0.5: true

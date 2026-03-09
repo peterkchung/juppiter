@@ -1,0 +1,78 @@
+# About: Health monitoring thresholds and FDIIR configuration
+
+# Global health score thresholds
+health_thresholds:
+  nominal: 0.75
+  degraded: 0.55
+  safe_stop: 0.0
+  
+  # Hysteresis to prevent mode flutter
+  hysteresis:
+    upward_threshold: 0.80    # Must reach 0.80 to exit degraded
+    downward_threshold: 0.70  # Must drop below 0.70 to enter degraded
+
+# Per-sensor staleness thresholds (milliseconds)
+staleness_thresholds:
+  camera: 100
+  imu: 50
+  lidar: 150
+
+# Time synchronization thresholds
+sync_thresholds:
+  target_mean_skew_ms: 5.0
+  warning_p95_skew_ms: 10.0
+  critical_max_skew_ms: 50.0
+
+# Covariance thresholds
+covariance_thresholds:
+  position_high: 0.5
+  position_critical: 1.0
+  orientation_high: 0.1  # radians
+  orientation_critical: 0.2
+
+# Rate monitoring
+rate_thresholds:
+  camera:
+    expected_hz: 20
+    min_acceptable_hz: 15
+  imu:
+    expected_hz: 200
+    min_acceptable_hz: 190
+  lidar:
+    expected_hz: 10
+    min_acceptable_hz: 8
+
+# Mode persistence
+mode_persistence:
+  cycles_to_confirm: 3  # Confirm mode change after N consecutive cycles
+  max_mode_switch_rate_hz: 1.0  # Prevent rapid switching
+
+# Fault classification
+fault_types:
+  sensor_offline:
+    severity: "critical"
+    immediate_mode_switch: true
+  
+  sensor_stale:
+    severity: "warning"
+    tolerance_sec: 0.5
+    
+  sync_violation:
+    severity: "warning"
+    immediate_mode_switch: false
+    
+  quality_degraded:
+    severity: "warning"
+    immediate_mode_switch: false
+    
+  rate_degraded:
+    severity: "info"
+    immediate_mode_switch: false
+    
+  calibration_drift:
+    severity: "critical"
+    immediate_mode_switch: true
+    
+  environmental_degradation:
+    severity: "warning"
+    immediate_mode_switch: false

@@ -1,0 +1,76 @@
+# About: Compute profile configuration for ultra-low-power tier
+# Target: Raspberry Pi 4B 4GB / STM32H7 + companion computer
+# Purpose: Minimal viable navigation when resources severely constrained
+
+compute_tier: "low_power"
+tier_description: "Ultra-low-power tier for minimal resource platforms"
+
+# Estimator Implementations
+lio_implementation: "dlio"  # DLIO only - no global map storage
+vio_implementation: "none"   # VIO disabled - insufficient resources
+kinematic_implementation: "robot_localization"
+
+# Hardware Requirements
+hardware_requirements:
+  min_cpu_cores: 4
+  min_ram_gb: 4
+  target_platforms:
+    - "Raspberry Pi 4B 4GB"
+    - "STM32H7 + RPi Zero 2W"
+
+# Fusion Configuration (simplified: LIO + kinematic only)
+fusion_weights:
+  lio: 0.70        # DLIO primary
+  vio: 0.0         # Disabled
+  kinematic: 0.30  # Higher weight for kinematic fallback
+
+# Health Thresholds
+health_thresholds:
+  nominal: 0.70
+  degraded: 0.50
+  safe_stop: 0.0
+
+# Mode Definitions (simplified)
+modes:
+  nominal:
+    min_health: 0.70
+    active_estimators: ["lio", "kinematic"]
+    primary: "lio"
+  degraded_lio:
+    min_health: 0.50
+    max_health: 0.70
+    active_estimators: ["kinematic"]
+    primary: "kinematic"
+  safe_stop:
+    max_health: 0.50
+    active_estimators: ["kinematic"]
+    primary: "kinematic"
+    action: "initiate_stop_sequence"
+
+# FDIIR Configuration (minimal)
+fdiir:
+  cross_validation_enabled: false
+  full_diagnostic_metrics: false
+  innovation_monitoring: false
+  environmental_context: false
+
+# Resource Optimization (aggressive)
+optimization:
+  dynamic_downsampling: true
+  lidar_downsample_factor: 4.0
+  map_resolution_m: 0.2  # Coarser map
+  imu_integration_only: true
+
+# Sensor Configuration References (reduced fidelity)
+sensor_configs:
+  lidar: "config/sensors/simulated_livox.yaml"
+  camera: null  # No camera in low-power mode
+  imu: "config/sensors/simulated_imu.yaml"
+
+# Build Configuration
+build_flags:
+  optimization: "O3"
+  debug_symbols: false
+  profiling: false
+  strip_symbols: true
+  disable_asserts: true

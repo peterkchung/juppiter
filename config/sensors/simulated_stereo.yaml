@@ -1,0 +1,79 @@
+# About: Simulated stereo camera configuration
+# Resolution: 1280x720 (standard)
+# Target: Lunar surface navigation with harsh illumination
+
+stereo_camera:
+  name: "stereo_front"
+  type: "stereo"
+  
+  # Camera Properties
+  resolution:
+    width: 1280
+    height: 720
+  
+  # Baseline (typical for lunar rover)
+  baseline_m: 0.15  # 15cm baseline
+  
+  # Intrinsics (example values - would be calibrated)
+  intrinsics_left:
+    fx: 640.0
+    fy: 640.0
+    cx: 640.0
+    cy: 360.0
+    distortion_model: "plumb_bob"
+    d: [0.0, 0.0, 0.0, 0.0, 0.0]
+    
+  intrinsics_right:
+    fx: 640.0
+    fy: 640.0
+    cx: 640.0
+    cy: 360.0
+    distortion_model: "plumb_bob"
+    d: [0.0, 0.0, 0.0, 0.0, 0.0]
+    
+  # Extrinsics (right camera relative to left)
+  extrinsics:
+    translation: [0.15, 0.0, 0.0]  # 15cm baseline in X
+    rotation: [0.0, 0.0, 0.0, 1.0]  # Quaternion (identity)
+    
+  # Frame Rate
+  fps: 20
+  
+  # Lunar Lighting Simulation
+  lighting:
+    sun_azimuth_deg: 10.0    # Low sun angle at poles
+    sun_elevation_deg: 5.0
+    intensity: 1361.0         # W/m^2 (solar constant at Moon)
+    shadows_enabled: true
+    
+  # Visual Degradation Models
+  degradation:
+    motion_blur:
+      enabled: true
+      max_pixel_shift: 5
+    noise:
+      enabled: true
+      type: "gaussian"
+      sigma: 0.01
+    overexposure:
+      enabled: true
+      threshold: 0.95
+      
+  # Health Monitoring
+  health:
+    min_frame_rate_hz: 15
+    max_staleness_ms: 100
+    min_exposure_range: [0.1, 0.9]  # Valid exposure range
+    
+  # ROS 2 Topics
+  topics:
+    left_image: "/stereo/left/image_raw"
+    right_image: "/stereo/right/image_raw"
+    left_camera_info: "/stereo/left/camera_info"
+    right_camera_info: "/stereo/right/camera_info"
+    
+  # Gazebo Simulation
+  gazebo:
+    plugin: "gazebo_ros_stereo_camera"
+    update_rate: 20
+    visualize: true

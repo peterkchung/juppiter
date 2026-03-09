@@ -1,0 +1,78 @@
+# About: Compute profile configuration for development tier (high-performance hardware)
+# Target: Workstation-class hardware (i7-14700K, 32GB+ RAM)
+# Purpose: Algorithm development, FDIIR validation, comprehensive sensor fusion
+
+compute_tier: "dev"
+tier_description: "Development tier with full algorithm suite for algorithm validation and FDIIR testing"
+
+# Estimator Implementations
+lio_implementation: "fast_lio2"
+vio_implementation: "orb_slam3"
+kinematic_implementation: "robot_localization"
+
+# Hardware Requirements
+hardware_requirements:
+  min_cpu_cores: 8
+  min_ram_gb: 8
+  recommended_gpu: false  # GPU optional for ORB-SLAM3
+
+# Fusion Configuration
+fusion_weights:
+  lio: 0.50        # LIO primary (dust-resistant, robust)
+  vio: 0.35        # VIO secondary (high precision in textured env)
+  kinematic: 0.15  # Wheel+IMU baseline (odom drift compensation)
+
+# Health Thresholds
+health_thresholds:
+  nominal: 0.75
+  degraded: 0.55
+  safe_stop: 0.0
+  
+# Mode Definitions
+modes:
+  nominal:
+    min_health: 0.75
+    active_estimators: ["lio", "vio", "kinematic"]
+    primary: "lio"
+  degraded_lio:
+    min_health: 0.55
+    max_health: 0.75
+    active_estimators: ["vio", "kinematic"]
+    primary: "vio"
+    trigger: "lio_health < 0.75"
+  degraded_vio:
+    min_health: 0.55
+    max_health: 0.75
+    active_estimators: ["lio", "kinematic"]
+    primary: "lio"
+    trigger: "vio_health < 0.75"
+  degraded_kinematic:
+    min_health: 0.55
+    max_health: 0.75
+    active_estimators: ["lio", "vio"]
+    primary: "lio"
+    trigger: "kinematic_health < 0.75"
+  safe_stop:
+    max_health: 0.55
+    active_estimators: ["kinematic"]
+    primary: "kinematic"
+    action: "initiate_stop_sequence"
+
+# FDIIR Configuration
+fdiir:
+  cross_validation_enabled: true
+  full_diagnostic_metrics: true
+  innovation_monitoring: true
+  environmental_context: true
+  
+# Sensor Configuration References
+sensor_configs:
+  lidar: "config/sensors/simulated_livox.yaml"
+  camera: "config/sensors/simulated_stereo.yaml"
+  imu: "config/sensors/simulated_imu.yaml"
+
+# Build Configuration
+build_flags:
+  optimization: "O3"
+  debug_symbols: true
+  profiling: true
