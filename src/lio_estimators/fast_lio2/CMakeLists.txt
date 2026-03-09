@@ -1,34 +1,50 @@
 cmake_minimum_required(VERSION 3.8)
-project(fusion_core)
+project(fast_lio2)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
+
+# C++17 required for FAST-LIO2
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
-find_package(std_msgs REQUIRED)
+find_package(pcl_ros REQUIRED)
+find_package(pcl_conversions REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
-find_package(yaml-cpp REQUIRED)
-
-find_package(sensor_interfaces REQUIRED)
 find_package(lio_estimator_interfaces REQUIRED)
-find_package(vio_estimator_interfaces REQUIRED)
+
+# PCL and Eigen
+find_package(PCL REQUIRED COMPONENTS common io filters)
+find_package(Eigen3 REQUIRED)
+
+# Include FAST-LIO2 source from submodule or external
+# For now, we'll create a wrapper that links to it
+include_directories(
+  include
+  ${PCL_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIRS}
+)
 
 add_library(${PROJECT_NAME} SHARED
-  src/fusion_engine.cpp
-  src/mode_manager.cpp
-  src/weight_calculator.cpp
+  src/fast_lio2_estimator.cpp
+  src/ikd_tree_manager.cpp
+  src/imu_processor.cpp
+  src/lidar_processor.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
+  ${PCL_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIRS}
 )
 
 ament_target_dependencies(${PROJECT_NAME}
@@ -36,28 +52,27 @@ ament_target_dependencies(${PROJECT_NAME}
   nav_msgs
   sensor_msgs
   geometry_msgs
-  std_msgs
+  pcl_ros
+  pcl_conversions
   tf2
   tf2_ros
   tf2_geometry_msgs
-  sensor_interfaces
   lio_estimator_interfaces
-  vio_estimator_interfaces
 )
 
 target_link_libraries(${PROJECT_NAME}
-  yaml-cpp
+  ${PCL_LIBRARIES}
 )
 
-add_executable(fusion_node
-  src/fusion_node.cpp
+add_executable(fast_lio2_node
+  src/fast_lio2_node.cpp
 )
 
-target_link_libraries(fusion_node
+target_link_libraries(fast_lio2_node
   ${PROJECT_NAME}
 )
 
-install(TARGETS ${PROJECT_NAME} fusion_node
+install(TARGETS ${PROJECT_NAME} fast_lio2_node
   EXPORT ${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -69,28 +84,27 @@ install(
   DESTINATION include
 )
 
-# No config files to install yet
-# install(
-#   DIRECTORY config/
-#   DESTINATION share/${PROJECT_NAME}/config
-# )
+install(
+  DIRECTORY config/
+  DESTINATION share/${PROJECT_NAME}/config
+)
+
+install(
+  DIRECTORY launch/
+  DESTINATION share/${PROJECT_NAME}/launch
+)
 
 ament_export_include_directories(include)
 ament_export_libraries(${PROJECT_NAME})
 ament_export_dependencies(
-  rclcpp nav_msgs sensor_msgs geometry_msgs std_msgs
-  tf2 tf2_ros tf2_geometry_msgs yaml-cpp
-  sensor_interfaces lio_estimator_interfaces vio_estimator_interfaces
+  rclcpp nav_msgs sensor_msgs geometry_msgs
+  pcl_ros pcl_conversions tf2 tf2_ros tf2_geometry_msgs
+  lio_estimator_interfaces
 )
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
-  
-  # TODO: Add tests when test files are created
-  # find_package(ament_cmake_gtest REQUIRED)
-  # ament_add_gtest(test_fusion_engine test/test_fusion_engine.cpp)
-  # target_link_libraries(test_fusion_engine ${PROJECT_NAME})
 endif()
 
 ament_package()

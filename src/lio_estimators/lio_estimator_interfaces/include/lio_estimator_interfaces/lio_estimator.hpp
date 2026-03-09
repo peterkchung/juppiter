@@ -1,6 +1,6 @@
-# About: LIO Estimator Interface
-# Defines the contract for all LiDAR-Inertial Odometry implementations
-# Supports: FAST-LIO2, DLIO, SR-LIO++, LIO-SAM
+// About: LIO Estimator Interface
+// Defines the contract for all LiDAR-Inertial Odometry implementations
+// Supports: FAST-LIO2, DLIO, SR-LIO++, LIO-SAM
 
 #ifndef LIO_ESTIMATOR_INTERFACES__LIO_ESTIMATOR_HPP_
 #define LIO_ESTIMATOR_INTERFACES__LIO_ESTIMATOR_HPP_

@@ -1,5 +1,5 @@
-# About: Fusion Engine
-# Core confidence-weighted fusion logic for multi-estimator navigation
+// About: Fusion Engine
+// Core confidence-weighted fusion logic for multi-estimator navigation
 
 #ifndef FUSION_CORE__FUSION_ENGINE_HPP_
 #define FUSION_CORE__FUSION_ENGINE_HPP_

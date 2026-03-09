@@ -1,5 +1,5 @@
-# About: Mode Manager
-# Manages fusion mode transitions and handoff logic
+// About: Mode Manager
+// Manages fusion mode transitions and handoff logic
 
 #ifndef FUSION_CORE__MODE_MANAGER_HPP_
 #define FUSION_CORE__MODE_MANAGER_HPP_
