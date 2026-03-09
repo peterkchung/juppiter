@@ -94,9 +94,9 @@ Multi-sensor perception stack with plugin-based provider architecture and integr
   - `degraded_lidar` or `degraded_vision` (0.55 ≤ health < 0.75)
   - `safe_stop` (health < 0.55)
 
-### euroc_provider (Provider Example)
+### euroc_provider (Provider Example - Test Only)
 
-**Purpose:** Concrete SensorDriver implementation for EuRoC dataset replay with simulated fault injection.
+**Purpose:** Concrete SensorDriver implementation for EuRoC dataset replay with simulated fault injection. **Moved to `test/` for CI validation only.**
 
 **Structure:**
 - `EurocDriver` — Implements `SensorDriver` interface
@@ -111,7 +111,166 @@ Multi-sensor perception stack with plugin-based provider architecture and integr
 - `/imu/data` — IMU measurements
 - `/camera/color/camera_info` — Camera intrinsics
 
-## FDIIR Architecture
+### fusion_core (Fusion Layer) - NEW
+
+**Purpose:** Confidence-weighted multi-estimator fusion implementing LIO primary → VIO secondary → Kinematic fallback strategy.
+
+**Key Components:**
+
+**1. FusionEngine**
+- Core fusion algorithm: `weight_i = health_i / (covariance_norm_i + epsilon)`
+- Weighted mean pose fusion across LIO, VIO, and Kinematic sources
+- Mode-aware weight adjustment (nominal vs degraded modes)
+- Exponential moving average smoothing (alpha=0.25)
+- Supports: nominal, degraded_lio, degraded_vio, degraded_kinematic, safe_stop
+
+**2. ModeManager**
+- Mode transition logic with hysteresis (3-cycle persistence)
+- Discontinuity limits: 0.30m position, 5° yaw jump maximum
+- Covariance inflation during transitions (2× for 2 seconds)
+- Callback registration for mode change events
+- Transition history tracking for diagnostics
+
+**3. FusionNode (ROS 2 Integration)**
+- Subscribes to: `/lio/odom`, `/vio/odom`, `/kinematic/odom`
+- Publishes: `/perception/odom`, `/perception/mode`, `/perception/health`
+- Configurable fusion rate (default: 20Hz)
+- Dynamic compute profile support (dev/edge/low_power)
+
+**Fusion Weights (Configurable):**
+```yaml
+nominal:
+  lio: 0.50        # LIO primary (dust-resistant)
+  vio: 0.35        # VIO secondary (high precision)
+  kinematic: 0.15  # Baseline (always available)
+
+degraded_lio:
+  lio: 0.10        # Minimize LIO contribution
+  vio: 0.70        # VIO takes priority
+  kinematic: 0.20
+```
+
+### lio_estimators (LIO Abstraction Layer) - NEW
+
+**Purpose:** Modular interface for LiDAR-Inertial Odometry implementations supporting multiple algorithms and compute tiers.
+
+**Interface: `LioEstimator`**
+```cpp
+class LioEstimator {
+  virtual bool initialize(rclcpp::Node::SharedPtr node, 
+                          const std::string& config_path) = 0;
+  virtual void processPointCloud(sensor_msgs::PointCloud2::SharedPtr) = 0;
+  virtual void processImu(sensor_msgs::Imu::SharedPtr) = 0;
+  virtual nav_msgs::Odometry::SharedPtr getOdometry() = 0;
+  virtual LioHealthStatus getHealthStatus() const = 0;
+  virtual void setDownsampleFactor(float factor) = 0;  // Resource adaptation
+};
+```
+
+**Implementations:**
+- **FAST-LIO2** (`fast_lio2/`) — Dev tier, i7-14700K+, 8GB+ RAM
+- **DLIO** (`dlio/`) — Edge tier, RPi5 8GB / Jetson Orin Nano
+- **SR-LIO++** (`srlio/`) — Low-power tier, RPi4B 4GB (future)
+
+**Health Metrics:**
+- Point cloud density (points/m³)
+- Registration residuals (ICP quality)
+- Computational load (CPU %)
+
+### vio_estimators (VIO Abstraction Layer) - NEW
+
+**Purpose:** Modular interface for Visual-Inertial Odometry implementations with resource adaptation for edge deployment.
+
+**Interface: `VioEstimator`**
+```cpp
+class VioEstimator {
+  virtual bool initialize(rclcpp::Node::SharedPtr node,
+                          const std::string& config_path,
+                          const sensor_msgs::CameraInfo& left,
+                          const sensor_msgs::CameraInfo& right) = 0;
+  virtual void processStereo(sensor_msgs::Image::SharedPtr left,
+                             sensor_msgs::Image::SharedPtr right) = 0;
+  virtual nav_msgs::Odometry::SharedPtr getOdometry() = 0;
+  virtual VioHealthStatus getHealthStatus() const = 0;
+  virtual void setFrameRate(float rate_hz) = 0;  // Resource adaptation
+  virtual void setEnabled(bool enabled) = 0;      // Selective updates
+};
+```
+
+**Implementations:**
+- **ORB-SLAM3** (`orb_slam3/`) — Dev tier, stereo-inertial, high accuracy
+- **OpenVINS** (`openvins/`) — Edge tier, MSCKF-based, native ROS 2
+- **LEVIO** (`levio/`) — Ultra-low-power, RISC-V (future research)
+
+**Health Metrics:**
+- Tracked feature count
+- Mean reprojection error (pixels)
+- Scene illumination (lux)
+
+### kinetic_estimator (Kinematic Baseline) - NEW
+
+**Purpose:** Wheel odometry + IMU EKF providing baseline pose estimate independent of visual/lidar odometry.
+
+**Components:**
+- `robot_localization` EKF node
+- Wheel odometry from differential drive
+- 9-axis IMU integration
+- Regolith slip detection (future)
+
+**Configuration:** `config/kinetic_estimator.yaml`
+- EKF frequency: 50Hz
+- Two_d_mode: false (full 3D for lunar)
+- Wheel slip compensation enabled
+
+### gazebo_lunar_sim (Simulation Environment) - NEW
+
+**Purpose:** Gazebo Harmonic simulation for development, FDIIR validation, and algorithm testing.
+
+**Features:**
+- **Rover Model:** Differential drive, 0.8m × 0.6m, 5kg
+- **LiDAR:** Livox Mid-360 solid-state, 360°×59° FOV, 10Hz, 100k points/frame
+- **Stereo Camera:** 1280×720, 15cm baseline, 20Hz, lunar lighting simulation
+- **IMU:** 9-axis, 200Hz, MEMS noise model + temperature effects
+- **Terrain:** Rigid plane (Phase 1), regolith physics (Phase 6)
+- **Lighting:** Polar sun angles (5° elevation), hard shadows, 1361 W/m²
+
+**Topics:** `/lidar/points`, `/stereo/left|right/image_raw`, `/imu/data`, `/wheel/odometry`
+
+**Launch:** `ros2 launch gazebo_lunar_sim simulation.launch.py compute_profile:=dev`
+
+## Multi-Tier Compute Architecture - NEW
+
+The system supports three deployment tiers via YAML configuration:
+
+### Tier 1: Development (dev)
+- **Target:** Workstation-class (i7-14700K, 32GB+ RAM)
+- **LIO:** FAST-LIO2 (full accuracy, global map)
+- **VIO:** ORB-SLAM3 (stereo-inertial, loop closure)
+- **Fusion:** All three estimators active
+- **FDIIR:** Full cross-validation and diagnostics
+- **Config:** `config/compute_profiles/dev.yaml`
+
+### Tier 2: Edge (edge)
+- **Target:** Raspberry Pi 5 8GB / Jetson Orin Nano 8GB
+- **LIO:** DLIO (lighter, no global map, 2GB RAM)
+- **VIO:** OpenVINS (MSCKF-based, 2GB RAM)
+- **Fusion:** Selective updates (skip VIO when LIO healthy)
+- **FDIIR:** Essential health checks only (reduced compute)
+- **Optimization:** Dynamic downsampling (2× lidar)
+- **Config:** `config/compute_profiles/edge.yaml`
+
+### Tier 3: Low Power (low_power)
+- **Target:** Raspberry Pi 4B 4GB / minimal ARM
+- **LIO:** DLIO only (4× lidar downsample)
+- **VIO:** Disabled (insufficient resources)
+- **Fusion:** LIO + Kinematic only
+- **FDIIR:** Minimal fault detection
+- **Config:** `config/compute_profiles/low_power.yaml`
+
+**Switching:** Runtime profile selection via launch argument:
+```bash
+ros2 launch gazebo_lunar_sim simulation.launch.py compute_profile:=edge
+```
 
 The system implements Fault Detection, Isolation, Identification, and Recovery following aerospace-grade principles adapted for lunar robotics.
 
@@ -429,44 +588,84 @@ struct EstimatorHealth {
 
 **Trade-off:** 3× compute overhead, requires multi-core ARM processors (Jetson Orin Nano).
 
-### 5. Time Sync Monitoring
+### 7. Modular Estimator Architecture - NEW
 
-**Decision:** Monitor timestamp skew in core, don't force hardware sync on providers.
+**Decision:** Abstract LIO and VIO behind common interfaces with swappable implementations.
 
 **Rationale:**
-- Providers can use software timestamps or hardware PPS
-- Core reports violations but doesn't force sync method
-- Allows gradual migration from software to hardware sync
-- FDIIR layer uses sync status as fault indicator
+- Enables multi-tier deployment (dev/edge/low_power) from same codebase
+- Simplifies testing: can swap lightweight mock estimators in CI
+- Future-proof: can add new algorithms (e.g., neural LIO) without fusion core changes
+- Supports hardware-in-the-loop testing with real sensors via same interfaces
 
-**Thresholds (per PRD):**
-- Target: ≤ 5ms mean skew
-- Warning: ≤ 10ms p95 skew
-- Alert: > 10ms p95 skew (triggers degraded mode)
+**Implementation:**
+- Header-only interface packages (`lio_estimator_interfaces`, `vio_estimator_interfaces`)
+- Factory pattern for runtime instantiation based on compute profile
+- Consistent health reporting across all implementations
 
-### 6. Health Score Calculation with FDIIR
+### 8. Gazebo-Based FDIIR Validation - NEW
 
-**Decision:** Extend simple weighted average to full FDIIR-aware scoring.
+**Decision:** Define FDIIR test scenarios as YAML configurations for automated simulation testing.
 
-**Current Formula:**
+**Rationale:**
+- Reproducible fault injection (sensor dropout, rate degradation, quality loss)
+- Safe testing of catastrophic failure scenarios without hardware risk
+- CI/CD integration: run FDIIR tests on every commit
+- Quantitative metrics: pose error, mode switch latency, recovery time
+
+**Structure:**
+```yaml
+# test/fdiir_scenarios/lidar_dropout.yaml
+scenario_name: "lidar_dropout"
+fault_injection:
+  - time_sec: 10.0
+    type: "sensor_dropout"
+    target: "/lidar/points"
+expected_behavior:
+  - at_time: 10.5
+    expected_mode: "degraded_lio"
+success_criteria:
+  max_pose_error_m: 0.5
+  max_mode_switch_latency_sec: 2.0
 ```
-raw = 0.40 * lidar_score + 0.35 * vision_score + 0.25 * imu_score
-penalty = sync_penalty + fault_penalty + environmental_penalty
-overall = clamp(raw - penalty, 0.0, 1.0)
 
-Mode determination:
-- nominal: overall >= 0.75
-- degraded_*: 0.55 <= overall < 0.75
-- safe_stop: overall < 0.55
+**Scenarios Implemented:**
+1. **lidar_dropout** — LiDAR failure → VIO takeover verification
+2. **camera_degradation** — Vision degradation (blur, low light) → LIO priority
+3. **wheel_slip** — Kinematic degradation on regolith → weight reduction
+4. **cascading_fault** — Multiple sensor failures → safe_stop trigger
+
+## Testing & Validation
+
+### FDIIR Testing Framework
+
+**Unit Tests (C++):**
+- Health score calculation validation
+- Mode transition logic
+- Fault injection simulation
+- Temporal interpolation accuracy
+
+**Integration Tests (ROS 2):**
+- Multi-sensor fault scenarios
+- Mode handoff verification
+- End-to-end latency measurement
+- Recovery sequence validation
+
+**Simulation Tests (Gazebo):**
+- YAML-defined scenarios in `test/fdiir_scenarios/`
+- Automated fault injection via topic manipulation
+- Ground truth comparison for pose error metrics
+- Performance profiling on target hardware (RPi5, Jetson)
+
+**Test Execution:**
+```bash
+# Run specific scenario
+ros2 launch gazebo_lunar_sim simulation.launch.py scenario:=lidar_dropout
+
+# CI/CD batch testing
+colcon test --packages-select fusion_core
+colcon test-result --verbose
 ```
-
-**Future additions:**
-- Innovation sequence monitoring (Mahalanobis distance)
-- Environmental context (lighting, terrain type)
-- EMA smoothing (alpha=0.25) for hysteresis
-- Predictive health based on trend analysis
-
-### 7. Provider Isolation
 
 **Decision:** Each provider runs as separate ROS 2 node (via Node composition).
 
