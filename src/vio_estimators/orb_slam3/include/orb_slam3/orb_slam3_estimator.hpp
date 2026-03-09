@@ -18,6 +18,9 @@
 
 #include "vio_estimator_interfaces/vio_estimator.hpp"
 
+// Eigen
+#include <Eigen/Dense>
+
 // OpenCV
 #include <opencv2/opencv.hpp>
 
