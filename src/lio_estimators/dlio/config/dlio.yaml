@@ -1,0 +1,52 @@
+# About: DLIO Configuration
+# Edge tier LIO estimator (lighter than FAST-LIO2)
+
+dlio:
+  # About: Keyframe Parameters
+  # More frequent keyframes than FAST-LIO2 for better recovery
+  keyframes:
+    threshold_translation_m: 0.5    # Smaller than FAST-LIO2
+    threshold_rotation_deg: 15.0
+    submap_size: 8                   # Smaller submap = less memory
+    
+  # About: Point Cloud Processing
+  point_cloud:
+    voxel_size_m: 0.15               # Coarser than FAST-LIO2 (0.1m)
+    min_points_per_frame: 3000       # Lower threshold for edge
+    max_points_per_frame: 50000      # Cap for resource limits
+    
+  # About: IMU Configuration
+  imu:
+    topic: "/imu/data"
+    integration_rate_hz: 200
+    
+    # Noise parameters (higher than FAST-LIO2 for stability)
+    accelerometer_noise: 0.02
+    gyroscope_noise: 0.05
+    
+  # About: Adaptive Resource Management
+  adaptive:
+    enabled: true
+    cpu_threshold_percent: 80.0
+    
+    # Actions when CPU high:
+    # 1. Increase voxel size (downsample more)
+    # 2. Reduce submap size
+    # 3. Skip frames
+    
+    voxel_scale_factors: [1.0, 1.5, 2.0, 3.0]
+    submap_scale_factors: [1.0, 0.8, 0.6, 0.5]
+    
+  # About: Output
+  output:
+    publish_odom: true
+    publish_path: false           # Disable to save bandwidth
+    publish_point_cloud: false    # Disable to save bandwidth
+    
+    frame_id: "map"
+    child_frame_id: "base_link"
+    
+  # About: Performance Monitoring
+  monitoring:
+    log_processing_time: true
+    target_processing_time_ms: 50.0  # 20Hz target
