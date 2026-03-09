@@ -10,9 +10,12 @@ find_package(rclcpp REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
-find_package(robot_localization REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
+
+# Note: robot_localization is a runtime dependency (ROS node), not a build dependency
+# It's listed in package.xml for rosdep installation but we don't find_package() it
+# as it doesn't export CMake targets
 
 add_executable(kinetic_estimator_node
   src/kinetic_estimator_node.cpp
