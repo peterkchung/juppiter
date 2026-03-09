@@ -45,6 +45,14 @@ jobs:
           path: docs/site/
           retention-days: 7
 
+      - name: Upload site for deployment
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-site
+          path: docs/site/
+          retention-days: 1
+
   deploy:
     needs: build
     runs-on: ubuntu-latest
@@ -54,24 +62,16 @@ jobs:
       contents: write
     
     steps:
-      - name: Checkout source
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Download built site
+        uses: actions/download-artifact@v4
         with:
-          python-version: '3.10'
-
-      - name: Install dependencies
-        run: |
-          pip install -r docs/requirements.txt
-
-      - name: Build site
-        run: |
-          cd docs
-          mkdocs build
+          name: docs-site
+          path: _site
 
       - name: Deploy to docs branch
         run: |
@@ -86,14 +86,15 @@ jobs:
             git checkout docs
           else
             git checkout --orphan docs
-            git rm -rf .
+            git rm -rf . || true
           fi
           
-          # Remove all files except .git
-          find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+          # Remove all files except .git and _site
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' ! -name '_site' -exec rm -rf {} +
           
-          # Copy built site
-          cp -r docs/site/* .
+          # Move site content to root
+          mv _site/* . 2>/dev/null || true
+          rm -rf _site
           
           # Create .nojekyll
           touch .nojekyll
