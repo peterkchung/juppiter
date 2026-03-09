@@ -8,9 +8,6 @@ repo_name: juppiter
 repo_url: https://github.com/opencode/juppiter
 edit_uri: blob/main/docs/
 
-# Docs directory (relative to mkdocs.yml location)
-docs_dir: .
-
 # Theme configuration
 theme:
   name: material
