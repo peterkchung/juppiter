@@ -1,0 +1,43 @@
+# About: ROS-Gazebo Bridge Configuration
+# Bridges Gazebo Harmonic topics to ROS 2 topics
+
+# LiDAR PointCloud
+- topic: /lidar/points
+  type: sensor_msgs/msg/PointCloud2
+  source: /lidar/points
+  target: /lidar/points
+  qos: sensor_data
+
+# Stereo Cameras
+- topic: /stereo/left/image_raw
+  type: sensor_msgs/msg/Image
+  source: /stereo/left/image
+  target: /stereo/left/image_raw
+  qos: sensor_data
+
+- topic: /stereo/right/image_raw
+  type: sensor_msgs/msg/Image
+  source: /stereo/right/image
+  target: /stereo/right/image_raw
+  qos: sensor_data
+
+# IMU
+- topic: /imu/data
+  type: sensor_msgs/msg/Imu
+  source: /imu/data
+  target: /imu/data
+  qos: sensor_data
+
+# Wheel Odometry (from Gazebo differential drive plugin)
+- topic: /wheel/odometry
+  type: nav_msgs/msg/Odometry
+  source: /model/lunar_rover/odometry
+  target: /wheel/odometry
+  qos: default
+
+# Clock for simulation time
+- topic: /clock
+  type: rosgraph_msgs/msg/Clock
+  source: /clock
+  target: /clock
+  qos: default

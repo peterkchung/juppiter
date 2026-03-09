@@ -7,7 +7,8 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, Command
+from launch.substitutions import LaunchConfiguration, Command, PathJoinSubstitution
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
@@ -52,7 +53,7 @@ def generate_launch_description():
             name='robot_state_publisher',
             output='screen',
             parameters=[{
-                'robot_description': robot_description,
+                'robot_description': ParameterValue(robot_description, value_type=str),
                 'use_sim_time': use_sim_time,
             }]
         ),
@@ -66,7 +67,7 @@ def generate_launch_description():
             launch_arguments={
                 'gz_args': [
                     '-r ',
-                    os.path.join(pkg_gazebo_lunar_sim, 'worlds', world_file),
+                    PathJoinSubstitution([pkg_gazebo_lunar_sim, 'worlds', world_file]),
                 ],
                 'on_exit_shutdown': 'true',
             }.items(),
@@ -92,7 +93,7 @@ def generate_launch_description():
             name='kinetic_estimator',
             output='screen',
             parameters=[
-                os.path.join(pkg_gazebo_lunar_sim, '..', '..', 'kinetic_estimator', 'config', 'kinetic_estimator.yaml'),
+                PathJoinSubstitution([FindPackageShare('kinetic_estimator'), 'config', 'kinetic_estimator.yaml']),
                 {'use_sim_time': use_sim_time},
             ],
         ),
@@ -103,7 +104,7 @@ def generate_launch_description():
             executable='rviz2',
             name='rviz2',
             output='screen',
-            arguments=['-d', os.path.join(pkg_gazebo_lunar_sim, 'config', 'rviz.rviz')],
+            arguments=['-d', PathJoinSubstitution([pkg_gazebo_lunar_sim, 'config', 'visualization.rviz'])],
             condition=IfCondition(LaunchConfiguration('rviz', default='true')),
         ),
     ])

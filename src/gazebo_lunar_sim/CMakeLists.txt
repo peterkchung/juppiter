@@ -14,15 +14,22 @@ find_package(geometry_msgs REQUIRED)
 find_package(ros_gz REQUIRED)
 find_package(ros_gz_sim REQUIRED)
 find_package(ros_gz_bridge REQUIRED)
-find_package(gz_ros2_control REQUIRED)
+
+# gz_ros2_control is optional - needed for hardware control bridge
+find_package(gz_ros2_control QUIET)
+if(gz_ros2_control_FOUND)
+  message(STATUS "gz_ros2_control found - hardware control bridge enabled")
+else()
+  message(WARNING "gz_ros2_control not found - building without control bridge")
+endif()
 
 install(
   DIRECTORY 
-    launch/
-    urdf/
-    worlds/
-    models/
-    config/
+    launch
+    urdf
+    worlds
+    models
+    config
   DESTINATION share/${PROJECT_NAME}
 )
 
