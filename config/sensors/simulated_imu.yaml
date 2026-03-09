@@ -1,0 +1,54 @@
+# About: Simulated IMU configuration
+# Type: 9-axis MEMS IMU (accelerometer + gyroscope + magnetometer)
+# Target: High-rate IMU for lunar navigation
+
+imu:
+  name: "imu_primary"
+  model: "simulated_9axis"
+  type: "9dof"
+  
+  # Data Rates
+  rate_hz: 200
+  
+  # Noise Characteristics (typical MEMS IMU)
+  accelerometer:
+    noise_density: 0.002  # m/s^2/sqrt(Hz)
+    random_walk: 0.0005  # m/s^3/sqrt(Hz)
+    bias_stability: 0.02  # m/s^2
+    range: 16.0  # g
+    
+  gyroscope:
+    noise_density: 0.02  # rad/s/sqrt(Hz)
+    random_walk: 0.0002  # rad/s^2/sqrt(Hz)
+    bias_stability: 0.5  # deg/hr
+    range: 2000.0  # deg/s
+    
+  magnetometer:
+    noise_density: 0.0005  # Gauss/sqrt(Hz)
+    bias_stability: 0.001  # Gauss
+    range: 4.0  # Gauss
+    
+  # Temperature Effects (lunar thermal cycling)
+  temperature:
+    model_enabled: true
+    temp_range_celsius: [-150, 120]
+    accel_temp_coefficient: 0.0001  # m/s^2/C
+    gyro_temp_coefficient: 0.01  # rad/s/C
+    
+  # Health Monitoring
+  health:
+    min_rate_hz: 190
+    max_staleness_ms: 50
+    max_bias_drift_rate: 0.1  # m/s^2/hr or deg/hr
+    
+  # ROS 2 Topics
+  topics:
+    imu_data: "/imu/data"
+    magnetic_field: "/imu/mag"
+    temperature: "/imu/temp"
+    
+  # Gazebo Simulation
+  gazebo:
+    plugin: "gazebo_ros_imu_sensor"
+    update_rate: 200
+    visualize: false
