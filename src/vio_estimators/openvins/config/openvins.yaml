@@ -1,0 +1,80 @@
+# About: OpenVINS Configuration
+# Edge tier VIO estimator (lighter than ORB-SLAM3)
+
+openvins:
+  # About: Camera Configuration
+  camera:
+    type: "stereo"
+    
+    # Resolution
+    width: 1280
+    height: 720
+    
+    # Calibration (example values)
+    fx: 640.0
+    fy: 640.0
+    cx: 640.0
+    cy: 360.0
+    
+    # Stereo baseline
+    baseline: 0.15
+    
+  # About: Feature Tracking
+  feature_tracking:
+    # Maximum features to track (less than ORB-SLAM3)
+    max_features: 150
+    
+    # Minimum features to maintain tracking
+    min_features: 50
+    
+    # Tracking method: 0 = KLT, 1 = Descriptor
+    track_method: 0  # KLT is faster
+    
+    # KLT parameters
+    klt_window_size: 15
+    klt_pyramid_levels: 3
+    
+  # About: MSCKF Configuration
+  msckf:
+    # IMU-Camera time offset
+    imu_cam_time_offset: 0.0
+    
+    # State window size
+    window_size: 10
+    
+    # Marginalization threshold
+    marg_threshold: 0.5
+    
+  # About: IMU Noise Parameters
+  imu:
+    # Noise sigmas
+    gyroscope_noise: 0.005  # rad/s
+    accelerometer_noise: 0.05  # m/s^2
+    
+    # Random walk
+    gyroscope_random_walk: 0.0001
+    accelerometer_random_walk: 0.001
+    
+    # Update rate
+    update_rate_hz: 200
+    
+  # About: Initialization
+  initialization:
+    # Stationary initialization
+    stationary_time: 1.0  # seconds
+    
+    # Minimum IMU samples for initialization
+    min_imu_samples: 200
+    
+  # About: Performance
+  performance:
+    # Target FPS
+    target_fps: 20.0
+    
+    # Skip feature tracking on some frames if CPU high
+    adaptive_skip: true
+    skip_ratio: 0  # 0 = no skip, 1 = skip every other
+    
+    # Disable SLAM features to save compute
+    use_aruco: false
+    use_plane_constraint: false
