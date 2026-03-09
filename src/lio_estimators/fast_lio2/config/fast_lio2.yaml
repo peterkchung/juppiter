@@ -1,0 +1,72 @@
+# About: FAST-LIO2 Configuration
+# Dev tier LIO estimator configuration
+
+fast_lio2:
+  # About: LiDAR Configuration
+  lidar:
+    # LiDAR type: velodyne, ouster, livox
+    type: "livox"
+    
+    # Scan parameters
+    blind: 0.5  # Minimum range (m)
+    det_range: 100.0  # Maximum range (m)
+    
+    # Point cloud filtering
+    point_filter_num: 3  # Downsample factor (keep 1 out of N)
+    
+  # About: ikd-Tree Configuration
+  map:
+    # ikd-Tree parameters
+    filter_size_map: 0.5  # Voxel size for map (m)
+    surrounding_keyframe_num: 50  # Number of keyframes to keep
+    
+    # Moving box filter
+    mapping_surf_size: 0.5  # Surface sample size
+    
+  # About: IMU Configuration
+  imu:
+    # IMU topic
+    topic: "/imu/data"
+    
+    # IMU parameters
+    imu_en: true  # Enable IMU integration
+    
+    # Extrinsics (IMU to LiDAR)
+    # Translation
+    extrinsic_t_imu_lidar: [0.0, 0.0, 0.0]
+    # Rotation (quaternion: w, x, y, z)
+    extrinsic_r_imu_lidar: [1.0, 0.0, 0.0, 0.0]
+    
+    # Noise parameters
+    acc_cov: 0.1
+    gyr_cov: 0.1
+    b_acc_cov: 0.0001
+    b_gyr_cov: 0.0001
+    
+  # About: Filter Configuration
+  filter:
+    # Iterated Kalman Filter
+    max_iterations: 3
+    
+    # Convergence criteria
+    converge_thresh: 0.001
+    
+  # About: Runtime Options
+  runtime:
+    # Publish
+    pub_odom: true
+    pub_path: true
+    pub_point_cloud: true
+    
+    # Frame IDs
+    frame_id: "map"
+    child_frame_id: "base_link"
+    
+  # About: Downsample for Resource Adaptation
+  # These can be adjusted dynamically via setDownsampleFactor()
+  adaptive:
+    # Base voxel size (scales with downsample_factor)
+    base_voxel_size: 0.1
+    
+    # Minimum points per frame for valid odometry
+    min_points_threshold: 5000
