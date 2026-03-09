@@ -1,69 +1,71 @@
 # Design — juppiter
 
-Architecture and design decisions for the Extreme-Conditions Lunar Perception Pipeline.
+Architecture and design decisions for the **Fault-Tolerant Multi-Sensor Perception System** with FDIIR (Fault Detection, Isolation, Identification, Recovery) principles and confidence-weighted sensor fusion.
 
 ## High-Level Architecture
 
-Multi-sensor perception stack with plugin-based provider architecture:
+Multi-sensor perception stack with plugin-based provider architecture and integrated FDIIR:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    sensor_core (orchestrator)                │
-│  ┌─────────────────┐  ┌─────────────────┐                  │
-│  │ TimeSynchronizer│  │ HealthMonitor   │                  │
-│  │ (skew detection)│  │ (mode manager)  │                  │
-│  └─────────────────┘  └─────────────────┘                  │
-│                                                              │
-│  Topics: /perception/health, /perception/mode                │
-└─────────────────────────────────────────────────────────────┘
-                           │
-        ┌──────────────────┼──────────────────┐
-        │                  │                  │
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    sensor_core (FDIIR orchestrator)                         │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐            │
+│  │ FaultDetector    │  │ FaultIsolator    │  │ RecoveryManager  │            │
+│  │ (health + sync)  │  │ (mode manager)   │  │ (degradation)    │            │
+│  └──────────────────┘  └──────────────────┘  └──────────────────┘            │
+│                                                                              │
+│  Topics: /perception/health, /perception/mode, /perception/faults          │
+└─────────────────────────────────────────────────────────────────────────────┘
+                            │
+         ┌──────────────────┼──────────────────┐
+         │                  │                  │
 ┌───────▼──────┐  ┌────────▼──────┐  ┌───────▼──────┐
 │euroc_provider│  │lidar_provider │  │other_provider│
 │ (EuRoC data) │  │ (real lidar) │  │  (future)    │
 └──────────────┘  └──────────────┘  └──────────────┘
-        │                  │
-        ▼                  ▼
-/stereo/left/       /lidar/points
-/stereo/right/          │
-/imu/data                │
-    │                    │
-    └────────┬───────────┘
-             ▼
-    ┌────────────────────┐
-│  │  fusion_core       │
-│  │  (LIO + VIO merge) │  [FUTURE]
-│  └────────────────────┘
-│           │
-│           ▼
-│  /perception/odometry
-│
-│  ┌────────────────────┐
-│  │  mode_manager      │  [FUTURE]
-│  │  (nominal/degraded/safe_stop)
-│  └────────────────────┘
-│
-└─────────────────────────────────────────────────────────────
+         │                  │
+         ▼                  ▼
+ /stereo/left/       /lidar/points
+ /stereo/right/          │
+ /imu/data                │
+     │                    │
+     └────────┬───────────┘
+              ▼
+     ┌────────────────────┐
+     │  fusion_core       │
+     │  ┌──────────────┐  │
+     │  │ Estimator A  │  │  (LIO - LiDAR-Inertial)
+     │  │ Estimator B  │  │  (VIO - Visual-Inertial)
+     │  │ Estimator C  │  │  (INS - Pure IMU fallback)
+     │  └──────────────┘  │
+     │  Confidence Fusion │
+     └────────────────────┘
+              │
+     ┌────────▼────────┐
+     │/perception/odom  │
+     │/perception/faults │
+     └───────────────────┘
 ```
 
 ## Package Architecture
 
 ### sensor_interfaces (Interface Layer)
 
-**Purpose:** Header-only package defining contracts for all sensor implementations.
+**Purpose:** Header-only package defining contracts for all sensor implementations with FDIIR support.
 
 **Key Components:**
 - `SensorDriver` — Abstract base class for all sensor providers
 - `SensorCapability` — Capability discovery flags (COLOR_IMAGE, LIDAR_POINTS, etc.)
-- `HealthStatus` — Standardized health reporting structure
+- `HealthStatus` — Standardized health reporting with fault classification
 - `TimeSyncStatus` — Time synchronization monitoring data
 - `SensorCalibration` — Calibration data structures with versioning
+- `FaultFlags` — Standardized fault classification (STALE, SYNC_VIOLATION, COVARIANCE_EXCEEDED, etc.)
 
 **Design Principles:**
 - Pure interfaces, no implementation
 - No ROS dependencies in base interface (only rclcpp::Node for initialization)
 - Versioned calibration artifacts support
+- Extensible fault classification system
 
 ### sensor_core (Orchestration Layer)
 
@@ -92,14 +94,15 @@ Multi-sensor perception stack with plugin-based provider architecture:
   - `degraded_lidar` or `degraded_vision` (0.55 ≤ health < 0.75)
   - `safe_stop` (health < 0.55)
 
-### euroc_provider (Provider Example)
+### euroc_provider (Provider Example - Test Only)
 
-**Purpose:** Concrete SensorDriver implementation for EuRoC dataset replay.
+**Purpose:** Concrete SensorDriver implementation for EuRoC dataset replay with simulated fault injection. **Moved to `test/` for CI validation only.**
 
 **Structure:**
 - `EurocDriver` — Implements `SensorDriver` interface
 - `EurocReader` — Pure C++ CSV parsing and image loading (no ROS)
 - `StereoDepth` — Pure C++ stereo rectification and depth computation (no ROS)
+- `FaultInjector` — Simulates sensor faults for FDIIR testing
 
 **Topics Published:**
 - `/stereo/left/image_raw` — Left camera (mono8)
@@ -107,6 +110,435 @@ Multi-sensor perception stack with plugin-based provider architecture:
 - `/camera/depth/image_rect_raw` — Stereo depth (32FC1)
 - `/imu/data` — IMU measurements
 - `/camera/color/camera_info` — Camera intrinsics
+
+### fusion_core (Fusion Layer) - NEW
+
+**Purpose:** Confidence-weighted multi-estimator fusion implementing LIO primary → VIO secondary → Kinematic fallback strategy.
+
+**Key Components:**
+
+**1. FusionEngine**
+- Core fusion algorithm: `weight_i = health_i / (covariance_norm_i + epsilon)`
+- Weighted mean pose fusion across LIO, VIO, and Kinematic sources
+- Mode-aware weight adjustment (nominal vs degraded modes)
+- Exponential moving average smoothing (alpha=0.25)
+- Supports: nominal, degraded_lio, degraded_vio, degraded_kinematic, safe_stop
+
+**2. ModeManager**
+- Mode transition logic with hysteresis (3-cycle persistence)
+- Discontinuity limits: 0.30m position, 5° yaw jump maximum
+- Covariance inflation during transitions (2× for 2 seconds)
+- Callback registration for mode change events
+- Transition history tracking for diagnostics
+
+**3. FusionNode (ROS 2 Integration)**
+- Subscribes to: `/lio/odom`, `/vio/odom`, `/kinematic/odom`
+- Publishes: `/perception/odom`, `/perception/mode`, `/perception/health`
+- Configurable fusion rate (default: 20Hz)
+- Dynamic compute profile support (dev/edge/low_power)
+
+**Fusion Weights (Configurable):**
+```yaml
+nominal:
+  lio: 0.50        # LIO primary (dust-resistant)
+  vio: 0.35        # VIO secondary (high precision)
+  kinematic: 0.15  # Baseline (always available)
+
+degraded_lio:
+  lio: 0.10        # Minimize LIO contribution
+  vio: 0.70        # VIO takes priority
+  kinematic: 0.20
+```
+
+### lio_estimators (LIO Abstraction Layer) - NEW
+
+**Purpose:** Modular interface for LiDAR-Inertial Odometry implementations supporting multiple algorithms and compute tiers.
+
+**Interface: `LioEstimator`**
+```cpp
+class LioEstimator {
+  virtual bool initialize(rclcpp::Node::SharedPtr node, 
+                          const std::string& config_path) = 0;
+  virtual void processPointCloud(sensor_msgs::PointCloud2::SharedPtr) = 0;
+  virtual void processImu(sensor_msgs::Imu::SharedPtr) = 0;
+  virtual nav_msgs::Odometry::SharedPtr getOdometry() = 0;
+  virtual LioHealthStatus getHealthStatus() const = 0;
+  virtual void setDownsampleFactor(float factor) = 0;  // Resource adaptation
+};
+```
+
+**Implementations:**
+- **FAST-LIO2** (`fast_lio2/`) — Dev tier, i7-14700K+, 8GB+ RAM
+- **DLIO** (`dlio/`) — Edge tier, RPi5 8GB / Jetson Orin Nano
+- **SR-LIO++** (`srlio/`) — Low-power tier, RPi4B 4GB (future)
+
+**Health Metrics:**
+- Point cloud density (points/m³)
+- Registration residuals (ICP quality)
+- Computational load (CPU %)
+
+### vio_estimators (VIO Abstraction Layer) - NEW
+
+**Purpose:** Modular interface for Visual-Inertial Odometry implementations with resource adaptation for edge deployment.
+
+**Interface: `VioEstimator`**
+```cpp
+class VioEstimator {
+  virtual bool initialize(rclcpp::Node::SharedPtr node,
+                          const std::string& config_path,
+                          const sensor_msgs::CameraInfo& left,
+                          const sensor_msgs::CameraInfo& right) = 0;
+  virtual void processStereo(sensor_msgs::Image::SharedPtr left,
+                             sensor_msgs::Image::SharedPtr right) = 0;
+  virtual nav_msgs::Odometry::SharedPtr getOdometry() = 0;
+  virtual VioHealthStatus getHealthStatus() const = 0;
+  virtual void setFrameRate(float rate_hz) = 0;  // Resource adaptation
+  virtual void setEnabled(bool enabled) = 0;      // Selective updates
+};
+```
+
+**Implementations:**
+- **ORB-SLAM3** (`orb_slam3/`) — Dev tier, stereo-inertial, high accuracy
+- **OpenVINS** (`openvins/`) — Edge tier, MSCKF-based, native ROS 2
+- **LEVIO** (`levio/`) — Ultra-low-power, RISC-V (future research)
+
+**Health Metrics:**
+- Tracked feature count
+- Mean reprojection error (pixels)
+- Scene illumination (lux)
+
+### kinetic_estimator (Kinematic Baseline) - NEW
+
+**Purpose:** Wheel odometry + IMU EKF providing baseline pose estimate independent of visual/lidar odometry.
+
+**Components:**
+- `robot_localization` EKF node
+- Wheel odometry from differential drive
+- 9-axis IMU integration
+- Regolith slip detection (future)
+
+**Configuration:** `config/kinetic_estimator.yaml`
+- EKF frequency: 50Hz
+- Two_d_mode: false (full 3D for lunar)
+- Wheel slip compensation enabled
+
+### gazebo_lunar_sim (Simulation Environment) - NEW
+
+**Purpose:** Gazebo Harmonic simulation for development, FDIIR validation, and algorithm testing.
+
+**Features:**
+- **Rover Model:** Differential drive, 0.8m × 0.6m, 5kg
+- **LiDAR:** Livox Mid-360 solid-state, 360°×59° FOV, 10Hz, 100k points/frame
+- **Stereo Camera:** 1280×720, 15cm baseline, 20Hz, lunar lighting simulation
+- **IMU:** 9-axis, 200Hz, MEMS noise model + temperature effects
+- **Terrain:** Rigid plane (Phase 1), regolith physics (Phase 6)
+- **Lighting:** Polar sun angles (5° elevation), hard shadows, 1361 W/m²
+
+**Topics:** `/lidar/points`, `/stereo/left|right/image_raw`, `/imu/data`, `/wheel/odometry`
+
+**Launch:** `ros2 launch gazebo_lunar_sim simulation.launch.py compute_profile:=dev`
+
+## Multi-Tier Compute Architecture - NEW
+
+The system supports three deployment tiers via YAML configuration:
+
+### Tier 1: Development (dev)
+- **Target:** Workstation-class (i7-14700K, 32GB+ RAM)
+- **LIO:** FAST-LIO2 (full accuracy, global map)
+- **VIO:** ORB-SLAM3 (stereo-inertial, loop closure)
+- **Fusion:** All three estimators active
+- **FDIIR:** Full cross-validation and diagnostics
+- **Config:** `config/compute_profiles/dev.yaml`
+
+### Tier 2: Edge (edge)
+- **Target:** Raspberry Pi 5 8GB / Jetson Orin Nano 8GB
+- **LIO:** DLIO (lighter, no global map, 2GB RAM)
+- **VIO:** OpenVINS (MSCKF-based, 2GB RAM)
+- **Fusion:** Selective updates (skip VIO when LIO healthy)
+- **FDIIR:** Essential health checks only (reduced compute)
+- **Optimization:** Dynamic downsampling (2× lidar)
+- **Config:** `config/compute_profiles/edge.yaml`
+
+### Tier 3: Low Power (low_power)
+- **Target:** Raspberry Pi 4B 4GB / minimal ARM
+- **LIO:** DLIO only (4× lidar downsample)
+- **VIO:** Disabled (insufficient resources)
+- **Fusion:** LIO + Kinematic only
+- **FDIIR:** Minimal fault detection
+- **Config:** `config/compute_profiles/low_power.yaml`
+
+**Switching:** Runtime profile selection via launch argument:
+```bash
+ros2 launch gazebo_lunar_sim simulation.launch.py compute_profile:=edge
+```
+
+The system implements Fault Detection, Isolation, Identification, and Recovery following aerospace-grade principles adapted for lunar robotics.
+
+### Fault Detection Layer
+
+**Health Monitor (Active Detection):**
+```cpp
+struct HealthStatus {
+  bool is_healthy;
+  float health_score;              // 0.0 to 1.0
+  std::vector<std::string> active_faults;
+  // FAULT_STALE: data age > threshold
+  // FAULT_SYNC_VIOLATION: inter-sensor skew > threshold  
+  // FAULT_COVARIANCE_EXCEEDED: pose uncertainty > threshold
+  // FAULT_RATE_DROP: actual rate < expected rate
+};
+```
+
+**Detection Methods:**
+1. **Temporal Monitoring** — Staleness detection (configurable per sensor type)
+   - Camera: >100ms without frame
+   - IMU: >50ms without sample
+   - Lidar: >200ms without scan
+
+2. **Synchronization Monitoring** — Time skew detection via `TimeSynchronizer`
+   - Target: ≤5ms mean skew across all sensors
+   - Warning: >10ms p95 skew
+   - Critical: >50ms max skew triggers isolation
+
+3. **Quality Monitoring** — Statistical anomaly detection
+   - Covariance norm monitoring
+   - Mahalanobis distance for outlier detection
+   - Innovation sequence analysis (future)
+
+4. **Cross-Validation** — Sensor-to-sensor consistency checks
+   - Stereo pair validation (epipolar constraint check)
+   - IMU-Lidar consistency (prediction vs measurement)
+   - Vision-Lidar geometric consistency
+
+### Fault Isolation Layer
+
+**Mode Determination:**
+The `FaultIsolator` classifies faults into operational modes:
+
+| Mode | Condition | Active Sensors | Action |
+|------|-----------|------------------|---------|
+| `nominal` | health ≥ 0.75 | All sensors | Full fusion |
+| `degraded_vision` | 0.55 ≤ health < 0.75, vision failing | Lidar + IMU | LIO priority |
+| `degraded_lidar` | 0.55 ≤ health < 0.75, lidar failing | Vision + IMU | VIO priority |
+| `degraded_imu` | 0.55 ≤ health < 0.75, IMU failing | Vision + Lidar | Visual-only + warn |
+| `safe_stop` | health < 0.55 | Minimum viable | Initiate stop sequence |
+
+**Fault Classification:**
+```cpp
+enum class FaultType {
+  // Detection level
+  SENSOR_OFFLINE,           // No data received
+  SENSOR_STALE,             // Data too old
+  
+  // Isolation level
+  SYNC_VIOLATION,           // Time sync failure
+  QUALITY_DEGRADED,         // Covariance too high
+  RATE_DEGRADED,            // Publishing slower than expected
+  
+  // Identification level
+  CALIBRATION_DRIFT,        // Extrinsic mismatch detected
+  ENVIRONMENT_DEGRADED,     // Extreme lighting/dust
+  HARDWARE_FAULT            // Physical sensor failure
+};
+```
+
+### Fault Identification Layer
+
+**Root Cause Analysis:**
+The system attempts to identify the underlying cause:
+
+1. **Sensor-Specific Diagnosis:**
+   - Camera: Frame drops, blur detection, exposure issues
+   - Lidar: Point cloud density, return intensity
+   - IMU: Bias drift, saturation detection
+
+2. **Environmental Factors:**
+   - Lighting changes (vision degradation in shadows)
+   - Dust/debris (lidar multi-return analysis)
+   - Thermal effects (IMU temperature compensation)
+
+3. **Calibration Health:**
+   - Online extrinsic verification via hand-eye calibration
+   - Intrinsic drift monitoring
+   - Version mismatch detection
+
+**Fault Injection for Testing:**
+```cpp
+// EurocProvider supports fault simulation
+fault_injector_.configure({
+  .drop_rate = 0.1,        // Drop 10% of frames
+  .delay_ms = 50,          // Add 50ms latency
+  .noise_sigma = 0.5       // Add Gaussian noise
+});
+```
+
+### Recovery Layer
+
+**Recovery Strategies:**
+
+1. **Graceful Degradation:**
+   - Automatic mode switching based on available sensors
+   - Confidence-weighted fusion adjustment
+   - Reduced update rates in degraded modes
+
+2. **Sensor Reinitialization:**
+   - Automatic reconnection attempts for transient faults
+   - Calibration re-verification on reconnection
+   - Warm-start from last known good pose
+
+3. **Estimator Handoff:**
+   - Smooth transition between LIO/VIO/INS modes
+   - Discontinuity limits: ≤0.30m position, ≤5° yaw
+   - Covariance inflation during transitions
+
+4. **Safe Stop Protocol:**
+   - Triggered when health < 0.55
+   - Gradual deceleration using last valid odometry
+   - Alert ground control with fault report
+
+**Recovery State Machine:**
+```
+nominal → degraded_*: Fault detected
+   ↓           ↓
+degraded_* → nominal: Fault cleared (health restored)
+degraded_* → safe_stop: Fault worsens (health < 0.55)
+   ↓
+safe_stop → degraded_*: Manual recovery intervention
+```
+
+## Sensor Fusion Architecture
+
+Multi-estimator fusion with confidence-weighted redundancy for lunar GNSS-denied navigation.
+
+### Estimator Design
+
+**Three Parallel Estimators:**
+
+1. **LIO Estimator (LiDAR-Inertial Odometry)**
+   - Library: FAST-LIO2 or LIO-SAM
+   - Inputs: `/lidar/points`, `/imu/data`
+   - Strengths: Robust to lighting, dust-resistant
+   - Weaknesses: Degenerates in featureless terrain
+   - Health Indicators: Point cloud density, registration residuals
+
+2. **VIO Estimator (Visual-Inertial Odometry)**
+   - Library: ORB-SLAM3 (stereo-inertial) or VINS-Fusion
+   - Inputs: `/stereo/left`, `/stereo/right`, `/imu/data`
+   - Strengths: High precision in textured environments
+   - Weaknesses: Fails in shadows, motion blur, dust
+   - Health Indicators: Tracked features, reprojection error
+
+3. **INS Estimator (Inertial Navigation System)**
+   - Library: Custom EKF with IMU integration
+   - Inputs: `/imu/data` only
+   - Strengths: Always available, high rate (200Hz)
+   - Weaknesses: Unbounded drift without corrections
+   - Health Indicators: Bias stability, temperature compensation
+
+### Fusion Strategies
+
+**Strategy 1: Confidence-Weighted EKF (Current)**
+```cpp
+struct EstimatorOutput {
+  geometry_msgs::msg::Pose pose;
+  geometry_msgs::msg::Twist velocity;
+  float confidence;        // 0.0 to 1.0 based on health
+  float covariance_norm;   // Uncertainty metric
+};
+
+// Weighted fusion
+fused_pose = (w_lio * pose_lio + w_vio * pose_vio + w_ins * pose_ins) / (w_lio + w_vio + w_ins);
+where w_i = confidence_i / covariance_norm_i
+```
+
+**Strategy 2: Factor Graph Optimization (Future)**
+- Backend: GTSAM or g2o
+- Factors: IMU preintegration, visual features, lidar registration
+- Robust cost functions for outlier rejection
+- Fixed-lag smoothing for real-time performance
+
+**Strategy 3: Mode-Specific Fusion:**
+- `nominal`: All three estimators active, confidence-weighted
+- `degraded_lidar`: VIO + INS fusion only
+- `degraded_vision`: LIO + INS fusion only
+- `safe_stop`: INS only with high uncertainty, stop command
+
+### Temporal Alignment
+
+**Synchronization Strategy:**
+```
+Lidar (10Hz) ──┐
+               ├─→ Temporal Interpolation → Unified timestep
+Vision (20Hz) ─┤
+               │
+IMU (200Hz) ───┘
+```
+
+- IMU buffer: Ring buffer for last 5 seconds
+- Lidar/vision: Interpolated to common timestamp
+- Maximum latency: 50ms between sensors for fusion
+
+### Confidence Calculation
+
+**Per-Estimator Confidence:**
+```cpp
+float compute_confidence(const EstimatorHealth& health) {
+  // Base confidence from health score
+  float base = health.score;
+  
+  // Penalties
+  float penalty = 0.0f;
+  if (health.covariance_norm > 0.5f) penalty += 0.2f;
+  if (health.innovation_mahalanobis > 3.0f) penalty += 0.3f;
+  if (health.sync_violation) penalty += 0.1f;
+  
+  // Environmental factors (future)
+  if (health.illumination < 10.0f) penalty += 0.15f;  // Too dark
+  if (health.point_density < 100) penalty += 0.15f;   // Sparse lidar
+  
+  return std::max(0.0f, base - penalty);
+}
+```
+
+### Handoff Management
+
+**Smooth Transitions:**
+- Detect mode change before acting (3 consecutive cycles below threshold)
+- Covariance inflation during handoff: ×2 for 2 seconds
+- Position discontinuity limit: 0.30m
+- Orientation discontinuity limit: 5° yaw
+
+**Handoff Sequence:**
+```
+1. Fault detected in primary estimator
+2. Isolator confirms fault (3 cycles)
+3. Mode switches to backup estimator
+4. Covariance inflated
+5. Smooth interpolation to new estimate
+6. Gradual covariance reduction over 2s
+```
+
+### Output Interface
+
+**Published Topics:**
+```
+/perception/odom          nav_msgs/Odometry    # Fused pose & twist
+/perception/odom/uncertainty std_msgs/Float32  # Fused covariance norm
+/perception/faults        diagnostic_msgs/DiagnosticArray  # Active faults
+/perception/mode          std_msgs/String      # Current operational mode
+/perception/estimator_health custom_msgs/EstimatorHealthArray
+```
+
+**Health Message Structure:**
+```cpp
+struct EstimatorHealth {
+  string name;              // "lio", "vio", "ins"
+  float confidence;         // 0.0 to 1.0
+  float covariance_norm;    // Position uncertainty
+  bool is_active;           // Contributing to fusion
+  string[] active_faults;   // Fault flags
+};
+```
 
 ## Design Decisions
 
@@ -118,8 +550,9 @@ Multi-sensor perception stack with plugin-based provider architecture:
 - New sensors can be added without recompiling core
 - Enables third-party provider packages
 - Matches ROS 2 ecosystem conventions
+- Supports fault injection testing via specialized providers
 
-**Trade-off:** Slightly more complex than static linking, but enables the modular vision.
+**Trade-off:** Slightly more complex than static linking, but enables the modular vision and FDIIR testing.
 
 ### 2. Interface Separation
 
@@ -129,38 +562,110 @@ Multi-sensor perception stack with plugin-based provider architecture:
 - Prevents circular dependencies
 - Providers only depend on interfaces, not implementation
 - Enables testing with mock implementations
+- Supports FDIIR testing with simulated fault providers
 
-### 3. Time Sync Monitoring
+### 3. FDIIR Integration
 
-**Decision:** Monitor timestamp skew in core, don't force hardware sync on providers.
+**Decision:** Implement FDIIR at system level rather than in individual estimators.
 
 **Rationale:**
-- Providers can use software timestamps or hardware PPS
-- Core reports violations but doesn't force sync method
-- Allows gradual migration from software to hardware sync
+- Centralized fault management enables cross-sensor validation
+- Consistent recovery strategies across all estimators
+- Mode switching based on holistic system health, not individual sensor health
+- Enables graceful degradation with multiple fallback options
 
-**Thresholds (per PRD):**
-- Target: ≤ 5ms mean skew
-- Warning: ≤ 10ms p95 skew
-- Alert: > 10ms p95 skew (triggers degraded mode)
+**Trade-off:** Adds complexity to core, but provides aerospace-grade reliability.
 
-### 4. Health Score Calculation
+### 4. Multi-Estimator Parallelism
 
-**Decision:** Start with simple weighted average, evolve to full PRD formula.
+**Decision:** Run LIO, VIO, and INS estimators in parallel rather than single fused estimator.
 
-**Current Formula:**
+**Rationale:**
+- Independent failure modes: fault in one doesn't crash others
+- Enables A/B comparison for fault detection
+- Instant handoff to healthy estimator on fault
+- Supports confidence-weighted fusion
+
+**Trade-off:** 3× compute overhead, requires multi-core ARM processors (Jetson Orin Nano).
+
+### 7. Modular Estimator Architecture - NEW
+
+**Decision:** Abstract LIO and VIO behind common interfaces with swappable implementations.
+
+**Rationale:**
+- Enables multi-tier deployment (dev/edge/low_power) from same codebase
+- Simplifies testing: can swap lightweight mock estimators in CI
+- Future-proof: can add new algorithms (e.g., neural LIO) without fusion core changes
+- Supports hardware-in-the-loop testing with real sensors via same interfaces
+
+**Implementation:**
+- Header-only interface packages (`lio_estimator_interfaces`, `vio_estimator_interfaces`)
+- Factory pattern for runtime instantiation based on compute profile
+- Consistent health reporting across all implementations
+
+### 8. Gazebo-Based FDIIR Validation - NEW
+
+**Decision:** Define FDIIR test scenarios as YAML configurations for automated simulation testing.
+
+**Rationale:**
+- Reproducible fault injection (sensor dropout, rate degradation, quality loss)
+- Safe testing of catastrophic failure scenarios without hardware risk
+- CI/CD integration: run FDIIR tests on every commit
+- Quantitative metrics: pose error, mode switch latency, recovery time
+
+**Structure:**
+```yaml
+# test/fdiir_scenarios/lidar_dropout.yaml
+scenario_name: "lidar_dropout"
+fault_injection:
+  - time_sec: 10.0
+    type: "sensor_dropout"
+    target: "/lidar/points"
+expected_behavior:
+  - at_time: 10.5
+    expected_mode: "degraded_lio"
+success_criteria:
+  max_pose_error_m: 0.5
+  max_mode_switch_latency_sec: 2.0
 ```
-raw = 0.45 * lidar_score + 0.35 * vision_score + 0.20 * imu_score
-penalty = stale_penalty + sync_penalty + fault_penalty
-overall = clamp(raw - penalty, 0.0, 1.0)
+
+**Scenarios Implemented:**
+1. **lidar_dropout** — LiDAR failure → VIO takeover verification
+2. **camera_degradation** — Vision degradation (blur, low light) → LIO priority
+3. **wheel_slip** — Kinematic degradation on regolith → weight reduction
+4. **cascading_fault** — Multiple sensor failures → safe_stop trigger
+
+## Testing & Validation
+
+### FDIIR Testing Framework
+
+**Unit Tests (C++):**
+- Health score calculation validation
+- Mode transition logic
+- Fault injection simulation
+- Temporal interpolation accuracy
+
+**Integration Tests (ROS 2):**
+- Multi-sensor fault scenarios
+- Mode handoff verification
+- End-to-end latency measurement
+- Recovery sequence validation
+
+**Simulation Tests (Gazebo):**
+- YAML-defined scenarios in `test/fdiir_scenarios/`
+- Automated fault injection via topic manipulation
+- Ground truth comparison for pose error metrics
+- Performance profiling on target hardware (RPi5, Jetson)
+
+**Test Execution:**
+```bash
+# Run specific scenario
+ros2 launch gazebo_lunar_sim simulation.launch.py scenario:=lidar_dropout
+
+# CI/CD batch testing
+colcon test --packages-select fusion_core
+colcon test-result --verbose
 ```
-
-**Future additions:**
-- Covariance penalty
-- EMA smoothing (alpha=0.25)
-- Confidence-weighted fusion
-
-### 5. Provider Isolation
 
 **Decision:** Each provider runs as separate ROS 2 node (via Node composition).
 
@@ -168,10 +673,11 @@ overall = clamp(raw - penalty, 0.0, 1.0)
 - Crash isolation — one provider failure doesn't kill others
 - Independent lifecycle management
 - Easier debugging and profiling
+- Supports fault injection testing
 
 **Trade-off:** More resource overhead than single-process, but acceptable for safety-critical applications.
 
-### 6. Pure C++ Components
+### 8. Pure C++ Components
 
 **Decision:** Keep computation (stereo depth, parsing) in pure C++/OpenCV, separate from ROS.
 
@@ -179,33 +685,112 @@ overall = clamp(raw - penalty, 0.0, 1.0)
 - Testable without ROS dependencies
 - Reusable in non-ROS contexts
 - Easier unit testing with standard test frameworks
+- Enables FDIIR testing in pure C++ without ROS overhead
 
-## CI/CD
+### 9. Confidence-Weighted Fusion
 
-**Active (Tier 1):**
-- `colcon build` — compile all packages
-- `colcon test` — ament_lint (copyright, cpplint, uncrustify, cppcheck, xmllint)
+**Decision:** Weight sensor fusion by confidence rather than fixed weights.
 
-**Planned (Tier 2):**
-- Unit tests for pure C++ components (EurocReader, StereoDepth)
-- Integration tests with mock providers
-- Plugin loading validation
+**Rationale:**
+- Adapts to real-time sensor health
+- Degrades gracefully as individual sensors fail
+- Enables smooth transitions between fusion modes
+- Mathematically principled (inverse covariance weighting)
 
-**Planned (Tier 3):**
-- Full pipeline integration tests with EuRoC dataset
-- Performance benchmarks (latency, CPU usage)
-- Health monitoring validation with injected faults
+**Implementation:**
+```cpp
+// Confidence inversely proportional to covariance
+weight_i = confidence_i / (covariance_norm_i + epsilon);
+fused_estimate = weighted_mean(estimates, weights);
+```
+
+## Testing & Validation
+
+### FDIIR Testing Framework
+
+**Unit Tests (C++):**
+- Health score calculation validation
+- Mode transition logic
+- Fault injection simulation
+- Temporal interpolation accuracy
+
+**Integration Tests (ROS 2):**
+- Multi-sensor fault scenarios
+- Mode handoff verification
+- End-to-end latency measurement
+- Recovery sequence validation
+
+**Fault Injection Scenarios:**
+
+1. **Sensor Dropout:**
+   - Drop 50% of lidar scans → Verify LIO degraded, VIO takes over
+   - Drop all vision frames → Verify degraded_vision mode
+   - Drop IMU for 500ms → Verify degraded_imu mode
+
+2. **Timing Violations:**
+   - Inject 100ms latency in camera → Verify sync violation detection
+   - Intermittent sync failures → Verify hysteresis in mode switching
+
+3. **Quality Degradation:**
+   - Inject high covariance → Verify confidence weight reduction
+   - Sparse point cloud → Verify LIO confidence drop
+   - Motion blur → Verify VIO feature tracking failure
+
+4. **Recovery Testing:**
+   - Fault clear after 10s → Verify return to nominal
+   - Partial recovery → Verify appropriate degraded mode
+   - Cascading faults → Verify safe_stop trigger
+
+### CI/CD Pipeline
+
+**Tier 1 (Fast Feedback):**
+```bash
+colcon build --symlink-install
+colcon test --packages-select sensor_interfaces sensor_core
+```
+
+**Tier 2 (Integration):**
+```bash
+# Launch with fault injection
+ros2 launch juppiter test_fault_injection.launch.py scenario:=lidar_dropout
+
+# Verify behavior
+ros2 topic echo /perception/mode  # Should show degraded_lidar
+ros2 topic echo /perception/faults  # Should list active faults
+```
+
+**Tier 3 (Full Validation):**
+- EuRoC dataset with simulated faults
+- Hardware-in-the-loop with real sensors
+- Long-duration stability tests (24hr)
 
 ## Future Extensions
 
-### Multi-Estimator Fusion (Milestone 4)
+### Advanced FDIIR (Phase 2)
 
-Add `fusion_core` package:
-- EKF-based LIO + VIO fusion
-- Covariance-weighted sensor arbitration
-- Handoff discontinuity monitoring (≤ 0.30m, ≤ 5° yaw)
+**Innovation Monitoring:**
+- Mahalanobis distance tracking per estimator
+- Innovation sequence whitening tests
+- Predictive fault detection via trend analysis
 
-### Hazard Detection (Milestone 5)
+**Environmental Adaptation:**
+- Illumination-aware vision confidence adjustment
+- Terrain-aware lidar quality metrics
+- Temperature-compensated IMU bias estimation
+
+**Advanced Recovery:**
+- Automatic sensor re-initialization
+- Warm-start from last known good state
+- Ground control notification with detailed fault reports
+
+### Multi-Agent FDIIR (Phase 3)
+
+**Cross-Robot Validation:**
+- Inter-robot pose consistency checks
+- Distributed fault detection via consensus
+- Collaborative recovery strategies
+
+### Terrain Perception
 
 Add `terrain_perception` package:
 - Lidar-based geometry analysis
@@ -226,6 +811,14 @@ calibration:
 ```
 
 On-boot validation and runtime drift monitoring.
+
+### Factor Graph Fusion (Phase 4)
+
+Replace EKF with factor graph backend:
+- Backend: GTSAM or g2o
+- Robust cost functions (Huber, Cauchy)
+- Fixed-lag smoothing (1-2 second window)
+- Outlier rejection at factor level
 
 ## Branch Strategy
 

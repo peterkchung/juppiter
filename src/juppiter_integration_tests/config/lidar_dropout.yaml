@@ -1,0 +1,21 @@
+# About: Sample test scenario config
+# This is a copy of the lidar_dropout scenario for the integration test package
+
+scenario_name: "integration_test_sample"
+description: "Sample integration test scenario"
+duration_seconds: 30
+
+fault_injection:
+  - time_sec: 5.0
+    type: "sensor_dropout"
+    target: "/lidar/points"
+    duration_sec: 3.0
+
+expected_behavior:
+  - at_time: 6.0
+    expected_mode: "degraded_lio"
+    expected_primary: "vio"
+
+success_criteria:
+  max_pose_error_m: 0.5
+  max_mode_switch_latency_sec: 2.0

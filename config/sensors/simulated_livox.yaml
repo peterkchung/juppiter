@@ -1,0 +1,50 @@
+# About: Simulated Livox Mid-360 LiDAR configuration
+# Type: Solid-state LiDAR (most likely for lunar missions)
+# Notes: Non-repetitive scanning pattern, 360° FOV, compact form factor
+
+lidar:
+  name: "livox_mid360_sim"
+  model: "Livox Mid-360"
+  type: "solid_state"
+  
+  # Scanning Properties
+  fov_horizontal_deg: 360.0
+  fov_vertical_deg: 59.0
+  range_min_m: 0.1
+  range_max_m: 100.0
+  
+  # Scan Pattern (non-repetitive, unique per frame)
+  scan_pattern: "non_repetitive"
+  points_per_frame: 100000  # Average
+  frame_rate_hz: 10
+  
+  # Noise Model (lunar regolith effects)
+  noise_model:
+    type: "gaussian"
+    range_std_m: 0.02
+    angular_std_deg: 0.1
+    
+  # Dust Degradation Simulation
+  dust_effects:
+    enabled: true
+    max_attenuation_db: 3.0
+    probability_of_drop: 0.001
+    
+  # ROS 2 Topics
+  topics:
+    point_cloud: "/lidar/points"
+    info: "/lidar/info"
+    
+  # Health Monitoring
+  health:
+    min_points_per_frame: 50000
+    max_staleness_ms: 150
+    expected_rate_hz: 10
+    
+  # Gazebo Simulation
+  gazebo:
+    plugin: "gazebo_ros_lidar"
+    ray_count_horizontal: 3600
+    ray_count_vertical: 590
+    update_rate: 10
+    visualize: true

@@ -1,0 +1,56 @@
+# About: ORB-SLAM3 Configuration
+# Dev tier VIO estimator configuration
+
+orb_slam3:
+  ros__parameters:
+    camera:
+      type: "stereo_inertial"
+      width: 1280
+      height: 720
+      fx: 640.0
+      fy: 640.0
+      cx: 640.0
+      cy: 360.0
+      baseline: 0.15
+      distortion_model: "plumb_bob"
+      k1: 0.0
+      k2: 0.0
+      p1: 0.0
+      p2: 0.0
+
+    orb:
+      n_features: 1200
+      scale_factor: 1.2
+      n_levels: 8
+      ini_th_fast: 20
+      min_th_fast: 7
+
+    imu:
+      noise_gyro: 0.001
+      noise_acc: 0.01
+      gyro_walk: 0.0001
+      acc_walk: 0.001
+      frequency_hz: 200
+
+    tracking:
+      min_parallax: 1.0
+      min_observations: 3
+      max_reprojection_error: 4.0
+
+    local_mapping:
+      window_size: 10
+      min_keyframes: 5
+
+    loop_closing:
+      enabled: true
+      vocabulary_path: "config/orb_vocab.bin"
+      min_score: 0.75
+
+    atlas:
+      max_maps: 5
+      merge_enabled: true
+
+    performance:
+      target_fps: 20.0
+      max_processing_ms: 45.0
+      visualization: false
