@@ -1,0 +1,80 @@
+# About: OpenVINS Configuration for Gazebo Simulation
+# Edge tier VIO estimator configuration
+# MSCKF-based, lighter than ORB-SLAM3
+
+openvins:
+  ros__parameters:
+    # Feature Tracker Selection
+    # "klt" = Kanade-Lucas-Tomasi (faster, default for edge)
+    # "orb" = ORB features (more robust, slower)
+    feature_tracker: "klt"
+    
+    # Camera calibration file path
+    # This file contains intrinsic/extrinsic calibration
+    calibration_file: "$(find openvins)/config/camera_simulation.yaml"
+    
+    # Compute profile
+    # "dev" = 20Hz, 300 features, full processing
+    # "edge" = 10Hz, 150 features, selective updates
+    # "low_power" = 5Hz, 100 features, minimal processing
+    compute_profile: "edge"
+    
+    # Feature tracking parameters
+    max_features: 150              # Max features to track (edge tier)
+    min_features: 50               # Minimum before triggering degraded mode
+    
+    # KLT specific (when feature_tracker: "klt")
+    klt_window_size: 15            # Tracking window size
+    klt_pyramid_levels: 3          # Pyramid levels for scale invariance
+    klt_max_error: 20.0            # Max error for good track
+    
+    # ORB specific (when feature_tracker: "orb")
+    orb_n_levels: 4                # Scale pyramid levels
+    orb_scale_factor: 1.2          # Scale factor between levels
+    orb_ini_th_fast: 20            # Initial FAST threshold
+    orb_min_th_fast: 7             # Minimum FAST threshold
+    
+    # MSCKF State Estimation
+    max_clones: 11                 # Sliding window size (~0.5s at 20Hz)
+    
+    # Static Initialization
+    # OpenVINS requires stationary period to initialize
+    init_window_time: 0.75         # Seconds of static motion required
+    init_imu_thresh: 0.25          # IMU excitation threshold (rad/s)
+    
+    # IMU noise parameters (match simulation)
+    imu_noise_gyro: 0.02           # rad/s (from simulation.yaml)
+    imu_noise_accel: 0.002         # m/s^2
+    imu_noise_gyro_walk: 0.0001    # rad/s^1.5
+    imu_noise_accel_walk: 0.001    # m/s^2.5
+    
+    # Performance optimization for edge tier
+    # Skip VIO processing when LIO is very healthy
+    skip_if_lio_healthy: true
+    lio_healthy_threshold: 0.95    # Skip when LIO health > 0.95
+    
+    # Adaptive frame skipping under CPU load
+    adaptive_skip: true            # Enable adaptive skipping
+    target_fps: 10.0               # Edge tier: 10Hz (vs 20Hz dev)
+    
+    # Grid-based feature detection (uniform distribution)
+    grid_x: 5                      # Horizontal grid cells
+    grid_y: 4                      # Vertical grid cells
+    
+    # Topics
+    topic_left: "/stereo/left/image_raw"
+    topic_right: "/stereo/right/image_raw"
+    topic_imu: "/imu/data"
+    
+    # Output frames
+    frame_id_imu: "imu"
+    frame_id_cam: "camera"
+    frame_id_odom: "map"
+    
+    # Loop closure (disabled for edge tier - future research)
+    use_loop_closure: false
+    
+    # Visualization (disabled for headless operation)
+    pub_image_track: false         # Publish feature tracking image
+    pub_path: true                # Publish trajectory
+    pub_points: true              # Publish tracked features
