@@ -6,7 +6,10 @@ site_url: https://github.com/opencode/juppiter
 # Repository (for edit links)
 repo_name: juppiter
 repo_url: https://github.com/opencode/juppiter
-eedit_uri: blob/main/docs/
+edit_uri: blob/main/docs/
+
+# Docs directory (relative to mkdocs.yml location)
+docs_dir: .
 
 # Theme configuration
 theme:
