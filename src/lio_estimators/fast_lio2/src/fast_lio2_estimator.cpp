@@ -32,13 +32,13 @@ void FastLio2Estimator::processPointCloud(
   if (!initialized_) return;
   // Stub: just update timestamp
   last_odom_->header = point_cloud->header;
+  state_.valid = true;
 }
 
 void FastLio2Estimator::processImu(
   const sensor_msgs::msg::Imu::SharedPtr imu)
 {
   if (!initialized_) return;
-  // Stub implementation
 }
 
 nav_msgs::msg::Odometry::SharedPtr FastLio2Estimator::getOdometry()
@@ -49,6 +49,8 @@ nav_msgs::msg::Odometry::SharedPtr FastLio2Estimator::getOdometry()
 
 LioHealthStatus FastLio2Estimator::getHealthStatus() const
 {
+  std::lock_guard<std::mutex> lock(health_mutex_);
+  
   LioHealthStatus health;
   health.is_healthy = true;
   health.health_score = 0.9f;

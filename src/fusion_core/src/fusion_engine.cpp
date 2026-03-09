@@ -38,12 +38,22 @@ void FusionEngine::updateLioInput(const lio::LioHealthStatus & lio_health)
   lio_input_.timestamp = node_->now();
 }
 
+void FusionEngine::updateLioOdometry(const nav_msgs::msg::Odometry::SharedPtr & odometry)
+{
+  lio_input_.odometry = *odometry;
+}
+
 void FusionEngine::updateVioInput(const vio::VioHealthStatus & vio_health)
 {
   vio_input_.health_score = vio_health.health_score;
   vio_input_.covariance_norm = vio_health.covariance_norm;
   vio_input_.source = "vio";
   vio_input_.timestamp = node_->now();
+}
+
+void FusionEngine::updateVioOdometry(const nav_msgs::msg::Odometry::SharedPtr & odometry)
+{
+  vio_input_.odometry = *odometry;
 }
 
 void FusionEngine::updateKinematicInput(
@@ -68,17 +78,82 @@ FusedOdometry FusionEngine::computeFusion()
   // Apply mode-specific weight adjustments
   applyModeWeights(current_mode_);
   
-  // TODO: Implement actual pose interpolation
-  // For now, return placeholder
+  // Total weight for normalization
+  float w_total = w_lio + w_vio + w_kinematic + epsilon_;
+  
+  // Normalize weights
+  float n_lio = w_lio / w_total;
+  float n_vio = w_vio / w_total;
+  float n_kinematic = w_kinematic / w_total;
+  
+  // Weighted fusion of positions
+  result.odometry.pose.pose.position.x = 
+    n_lio * lio_input_.odometry.pose.pose.position.x +
+    n_vio * vio_input_.odometry.pose.pose.position.x +
+    n_kinematic * kinematic_input_.odometry.pose.pose.position.x;
+    
+  result.odometry.pose.pose.position.y = 
+    n_lio * lio_input_.odometry.pose.pose.position.y +
+    n_vio * vio_input_.odometry.pose.pose.position.y +
+    n_kinematic * kinematic_input_.odometry.pose.pose.position.y;
+    
+  result.odometry.pose.pose.position.z = 
+    n_lio * lio_input_.odometry.pose.pose.position.z +
+    n_vio * vio_input_.odometry.pose.pose.position.z +
+    n_kinematic * kinematic_input_.odometry.pose.pose.position.z;
+  
+  // Weighted fusion of orientations (simplified - just using weighted average of components)
+  // For production, use proper quaternion slerp
+  result.odometry.pose.pose.orientation.x = 
+    n_lio * lio_input_.odometry.pose.pose.orientation.x +
+    n_vio * vio_input_.odometry.pose.pose.orientation.x +
+    n_kinematic * kinematic_input_.odometry.pose.pose.orientation.x;
+    
+  result.odometry.pose.pose.orientation.y = 
+    n_lio * lio_input_.odometry.pose.pose.orientation.y +
+    n_vio * vio_input_.odometry.pose.pose.orientation.y +
+    n_kinematic * kinematic_input_.odometry.pose.pose.orientation.y;
+    
+  result.odometry.pose.pose.orientation.z = 
+    n_lio * lio_input_.odometry.pose.pose.orientation.z +
+    n_vio * vio_input_.odometry.pose.pose.orientation.z +
+    n_kinematic * kinematic_input_.odometry.pose.pose.orientation.z;
+    
+  result.odometry.pose.pose.orientation.w = 
+    n_lio * lio_input_.odometry.pose.pose.orientation.w +
+    n_vio * vio_input_.odometry.pose.pose.orientation.w +
+    n_kinematic * kinematic_input_.odometry.pose.pose.orientation.w;
+  
+  // Weighted fusion of twist
+  result.odometry.twist.twist.linear.x = 
+    n_lio * lio_input_.odometry.twist.twist.linear.x +
+    n_vio * vio_input_.odometry.twist.twist.linear.x +
+    n_kinematic * kinematic_input_.odometry.twist.twist.linear.x;
+    
+  result.odometry.twist.twist.linear.y = 
+    n_lio * lio_input_.odometry.twist.twist.linear.y +
+    n_vio * vio_input_.odometry.twist.twist.linear.y +
+    n_kinematic * kinematic_input_.odometry.twist.twist.linear.y;
+    
+  result.odometry.twist.twist.linear.z = 
+    n_lio * lio_input_.odometry.twist.twist.linear.z +
+    n_vio * vio_input_.odometry.twist.twist.linear.z +
+    n_kinematic * kinematic_input_.odometry.twist.twist.linear.z;
+  
+  // Set metadata
   result.mode = current_mode_;
   result.overall_health = (lio_input_.health_score * w_lio + 
                            vio_input_.health_score * w_vio + 
-                           kinematic_input_.health_score * w_kinematic) / 
-                          (w_lio + w_vio + w_kinematic + epsilon_);
+                           kinematic_input_.health_score * w_kinematic) / w_total;
   
   result.source_weights["lio"] = w_lio;
   result.source_weights["vio"] = w_vio;
   result.source_weights["kinematic"] = w_kinematic;
+  
+  // Set frame IDs
+  result.odometry.header.frame_id = "map";
+  result.odometry.child_frame_id = "base_link";
+  result.odometry.header.stamp = node_->now();
   
   return result;
 }

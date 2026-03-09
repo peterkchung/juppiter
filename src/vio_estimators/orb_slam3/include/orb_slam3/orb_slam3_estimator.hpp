@@ -18,6 +18,9 @@
 
 #include "vio_estimator_interfaces/vio_estimator.hpp"
 
+// Eigen
+#include <Eigen/Dense>
+
 // OpenCV
 #include <opencv2/opencv.hpp>
 
@@ -26,10 +29,10 @@ namespace juppiter
 namespace vio
 {
 
-// Forward declarations
-class System;
-class Atlas;
-class Tracking;
+// Forward declarations - stubbed for now
+// class System;
+// class Atlas;
+// class Tracking;
 class LocalMapping;
 class LoopClosing;
 
@@ -113,8 +116,8 @@ private:
     int frames_since_init{0};
   } metrics_;
 
-  // ORB-SLAM3 system
-  std::unique_ptr<System> slam_system_;
+  // ORB-SLAM3 system - stubbed out for now
+  // std::unique_ptr<System> slam_system_;
   
   // IMU buffer (ORB-SLAM3 processes IMU in batches)
   std::queue<sensor_msgs::msg::Imu::SharedPtr> imu_buffer_;

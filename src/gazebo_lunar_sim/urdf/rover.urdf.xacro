@@ -1,8 +1,7 @@
-# About: Lunar Rover URDF/Xacro
-# Differential drive rover with LiDAR, stereo camera, and IMU
-# Designed for Gazebo Harmonic simulation
-
 <?xml version="1.0"?>
+<!-- About: Lunar Rover URDF/Xacro
+     Differential drive rover with LiDAR, stereo camera, and IMU
+     Designed for Gazebo Harmonic simulation -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="lunar_rover">
 
   <!-- About: Rover Dimensions -->

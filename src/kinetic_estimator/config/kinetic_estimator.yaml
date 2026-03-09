@@ -1,17 +1,12 @@
 # About: Kinematic Estimator Configuration
 # Fuses wheel odometry and IMU using robot_localization EKF
-# Provides baseline pose estimate independent of visual/lidar odometry
 
 kinetic_estimator:
-  # Node parameters
-  node_name: "kinetic_estimator"
-  
-  # EKF Configuration
-  ekf:
-    # Filter settings
+  ros__parameters:
+    # EKF Configuration
     frequency: 50.0
     sensor_timeout: 0.1
-    two_d_mode: false  # Full 3D for lunar
+    two_d_mode: false
     publish_tf: true
     publish_acceleration: false
     
@@ -21,67 +16,23 @@ kinetic_estimator:
     base_link_frame: "base_link"
     world_frame: "odom"
     
-    # Sensor fusion settings
+    # Wheel odometry input
     odom0: "/wheel/odometry"
-    odom0_config: 
-      # x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az
-      [true, true, false, false, false, true, true, false, false, false, false, true, false, false, false]
+    odom0_config: [true, true, false, false, false, true, true, false, false, false, false, true, false, false, false]
     odom0_differential: false
     odom0_relative: false
     odom0_queue_size: 10
-    odom0_pose_rejection_threshold: 2.0
-    odom0_twist_rejection_threshold: 0.2
     
+    # IMU input
     imu0: "/imu/data"
-    imu0_config:
-      # x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az
-      [false, false, false, true, true, false, false, false, false, false, false, true, true, true, true]
+    imu0_config: [false, false, false, true, true, false, false, false, false, false, false, true, true, true, true]
     imu0_differential: true
     imu0_relative: false
     imu0_queue_size: 20
-    imu0_pose_rejection_threshold: 0.8
-    imu0_twist_rejection_threshold: 0.1
-    imu0_linear_acceleration_rejection_threshold: 0.8
     imu0_remove_gravitational_acceleration: true
     
-    # Initial covariance
-    initial_estimate_covariance:
-      # x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az
-      [0.5, 0.5, 0.1, 0.1, 0.1, 0.5, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+    # Initial covariance (simplified)
+    initial_estimate_covariance: [0.5, 0.5, 0.1, 0.1, 0.1, 0.5, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
     
-    # Process noise
-    process_noise_covariance:
-      # x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az
-      [0.05, 0.05, 0.05, 0.03, 0.03, 0.06, 0.025, 0.025, 0.025, 0.05, 0.05, 0.05, 0.1, 0.1, 0.1]
-    
-  # Health monitoring (for FDIIR integration)
-  health:
-    # Odometry quality thresholds
-    min_wheel_odom_rate_hz: 10
-    max_wheel_slip_detected: 0.3  # Detect wheel slip on regolith
-    
-    # IMU quality thresholds
-    min_imu_rate_hz: 190
-    max_bias_drift_rate: 0.5
-    
-    # EKF confidence thresholds
-    max_position_covariance: 2.0
-    max_orientation_covariance: 0.5
-    
-  # Wheel odometry parameters
-  wheel_odometry:
-    # Differential drive model
-    wheel_separation: 0.5  # meters
-    wheel_radius: 0.1     # meters
-    
-    # Regolith slip model (empirical)
-    slip_model:
-      enabled: true
-      slip_factor_min: 0.0
-      slip_factor_max: 0.5
-      terrain_type: "lunar_regolith"
-      
-  # Output topics
-  topics:
-    odometry: "/kinematic/odom"
-    health: "/kinematic/health"
+    # Process noise (simplified)
+    process_noise_covariance: [0.05, 0.05, 0.05, 0.03, 0.03, 0.06, 0.025, 0.025, 0.025, 0.05, 0.05, 0.05, 0.1, 0.1, 0.1]
