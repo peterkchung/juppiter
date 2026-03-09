@@ -2,102 +2,55 @@
 # Dev tier VIO estimator configuration
 
 orb_slam3:
-  # About: Camera Configuration
-  camera:
-    # Stereo camera setup
-    type: "stereo_inertial"
-    
-    # Resolution
-    width: 1280
-    height: 720
-    
-    # Calibration (example values - would be loaded from calibration file)
-    fx: 640.0  # Focal length x
-    fy: 640.0  # Focal length y
-    cx: 640.0  # Principal point x
-    cy: 360.0  # Principal point y
-    
-    # Stereo baseline (meters)
-    baseline: 0.15
-    
-    # Distortion model
-    distortion_model: "plumb_bob"
-    k1: 0.0
-    k2: 0.0
-    p1: 0.0
-    p2: 0.0
-    
-  # About: ORB Feature Configuration
-  orb:
-    # Number of features per image
-    n_features: 1200
-    
-    # Scale pyramid
-    scale_factor: 1.2
-    n_levels: 8
-    
-    # Initial and minimum FAST threshold
-    ini_th_fast: 20
-    min_th_fast: 7
-    
-  # About: IMU Configuration
-  imu:
-    # Noise parameters (from calibration)
-    noise_gyro: 0.001  # rad/s^0.5
-    noise_acc: 0.01    # m/s^1.5
-    
-    # Random walk
-    gyro_walk: 0.0001  # rad/s^1.5
-    acc_walk: 0.001    # m/s^2.5
-    
-    # Frequency
-    frequency_hz: 200
-    
-  # About: Tracking Configuration
-  tracking:
-    # Minimum parallax for triangulation
-    min_parallax: 1.0
-    
-    # Minimum observations for new map points
-    min_observations: 3
-    
-    # Maximum reprojection error (pixels)
-    max_reprojection_error: 4.0
-    
-  # About: Local Mapping Configuration
-  local_mapping:
-    # Window size for local BA
-    window_size: 10
-    
-    # Minimum number of keyframes
-    min_keyframes: 5
-    
-  # About: Loop Closing Configuration
-  loop_closing:
-    # Enable/disable loop closure
-    enabled: true
-    
-    # Vocabulary path
-    vocabulary_path: "config/orb_vocab.bin"
-    
-    # Minimum score for loop candidates
-    min_score: 0.75
-    
-  # About: Atlas (Multi-Map) Configuration
-  atlas:
-    # Maximum number of maps
-    max_maps: 5
-    
-    # Enable map merging
-    merge_enabled: true
-    
-  # About: Performance Settings
-  performance:
-    # Target frame rate
-    target_fps: 20.0
-    
-    # Maximum processing time per frame (ms)
-    max_processing_ms: 45.0
-    
-    # Enable visualization (disable for headless operation)
-    visualization: false
+  ros__parameters:
+    camera:
+      type: "stereo_inertial"
+      width: 1280
+      height: 720
+      fx: 640.0
+      fy: 640.0
+      cx: 640.0
+      cy: 360.0
+      baseline: 0.15
+      distortion_model: "plumb_bob"
+      k1: 0.0
+      k2: 0.0
+      p1: 0.0
+      p2: 0.0
+
+    orb:
+      n_features: 1200
+      scale_factor: 1.2
+      n_levels: 8
+      ini_th_fast: 20
+      min_th_fast: 7
+
+    imu:
+      noise_gyro: 0.001
+      noise_acc: 0.01
+      gyro_walk: 0.0001
+      acc_walk: 0.001
+      frequency_hz: 200
+
+    tracking:
+      min_parallax: 1.0
+      min_observations: 3
+      max_reprojection_error: 4.0
+
+    local_mapping:
+      window_size: 10
+      min_keyframes: 5
+
+    loop_closing:
+      enabled: true
+      vocabulary_path: "config/orb_vocab.bin"
+      min_score: 0.75
+
+    atlas:
+      max_maps: 5
+      merge_enabled: true
+
+    performance:
+      target_fps: 20.0
+      max_processing_ms: 45.0
+      visualization: false

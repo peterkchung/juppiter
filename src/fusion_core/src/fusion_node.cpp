@@ -28,6 +28,13 @@ public:
     this->declare_parameter<std::string>("health_config", "config/fusion/health_thresholds.yaml");
     this->declare_parameter<double>("fusion_rate_hz", 20.0);
     
+    RCLCPP_INFO(this->get_logger(), 
+      "FusionNode created with profile: %s", 
+      this->get_parameter("compute_profile").as_string().c_str());
+  }
+  
+  void initialize()
+  {
     // Load parameters
     std::string compute_profile = this->get_parameter("compute_profile").as_string();
     std::string fusion_config = this->get_parameter("fusion_config").as_string();
@@ -35,7 +42,7 @@ public:
     double fusion_rate = this->get_parameter("fusion_rate_hz").as_double();
     
     RCLCPP_INFO(this->get_logger(), 
-      "FusionNode starting with profile: %s", compute_profile.c_str());
+      "FusionNode initializing with profile: %s", compute_profile.c_str());
     
     // Initialize fusion engine
     engine_ = std::make_unique<FusionEngine>();
@@ -87,6 +94,9 @@ public:
 private:
   void onLioOdometry(const nav_msgs::msg::Odometry::SharedPtr msg)
   {
+    // Store odometry for fusion
+    engine_->updateLioOdometry(msg);
+    
     // Extract covariance norm (simplified)
     float cov_norm = std::sqrt(
       msg->pose.covariance[0] + msg->pose.covariance[7] + msg->pose.covariance[14]);
@@ -100,6 +110,9 @@ private:
   
   void onVioOdometry(const nav_msgs::msg::Odometry::SharedPtr msg)
   {
+    // Store odometry for fusion
+    engine_->updateVioOdometry(msg);
+    
     float cov_norm = std::sqrt(
       msg->pose.covariance[0] + msg->pose.covariance[7] + msg->pose.covariance[14]);
     
@@ -180,6 +193,7 @@ int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<juppiter::fusion::FusionNode>();
+  node->initialize();  // Initialize after shared_ptr is created
   rclcpp::spin(node);
   rclcpp::shutdown();
   return 0;

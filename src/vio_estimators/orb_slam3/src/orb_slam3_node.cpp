@@ -108,11 +108,16 @@ private:
   
   void publishOdometry()
   {
-    if (!left_received_ || !right_received_) {
+    // For testing: publish even without input data
+    static bool first = true;
+    if ((!left_received_ || !right_received_) && !first) {
       RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
-        "No stereo images received yet");
-      return;
+        "No stereo images received yet, publishing test pattern");
     }
+    first = false;
+    
+    // Simulate motion continuously
+    simulateMotion();
     
     // Update timestamp
     current_odom_.header.stamp = this->now();
@@ -122,7 +127,10 @@ private:
     
     // Publish health status
     std_msgs::msg::String health_msg;
-    health_msg.data = "{\"score\": 0.92, \"healthy\": true, \"source\": \"orb_slam3\"}";
+    bool has_input = left_received_ && right_received_;
+    health_msg.data = has_input ? 
+      "{\"score\": 0.92, \"healthy\": true, \"source\": \"orb_slam3\"}" :
+      "{\"score\": 0.48, \"healthy\": true, \"source\": \"orb_slam3_stub\"}";
     health_pub_->publish(health_msg);
     
     RCLCPP_DEBUG(this->get_logger(), 

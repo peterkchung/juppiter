@@ -88,10 +88,22 @@ public:
   void updateLioInput(const lio::LioHealthStatus & lio_health);
 
   /**
+   * @brief Add LIO odometry data
+   * @param odometry LIO odometry message
+   */
+  void updateLioOdometry(const nav_msgs::msg::Odometry::SharedPtr & odometry);
+
+  /**
    * @brief Add VIO odometry input
    * @param vio_health VIO estimator health status
    */
   void updateVioInput(const vio::VioHealthStatus & vio_health);
+
+  /**
+   * @brief Add VIO odometry data
+   * @param odometry VIO odometry message
+   */
+  void updateVioOdometry(const nav_msgs::msg::Odometry::SharedPtr & odometry);
 
   /**
    * @brief Add kinematic odometry input (wheel+IMU EKF)

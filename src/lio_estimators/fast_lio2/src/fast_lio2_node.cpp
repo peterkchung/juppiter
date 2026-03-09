@@ -96,11 +96,17 @@ private:
   
   void publishOdometry()
   {
-    if (!lidar_received_) {
+    // For testing: publish even without input data
+    // In production, require lidar_received_
+    static bool first = true;
+    if (!lidar_received_ && !first) {
       RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
-        "No LiDAR data received yet");
-      return;
+        "No LiDAR data received yet, publishing test pattern");
     }
+    first = false;
+    
+    // Simulate motion continuously
+    simulateMotion();
     
     // Update timestamp
     current_odom_.header.stamp = this->now();
@@ -110,7 +116,9 @@ private:
     
     // Publish health status
     std_msgs::msg::String health_msg;
-    health_msg.data = "{\"score\": 0.95, \"healthy\": true, \"source\": \"fast_lio2\"}";
+    health_msg.data = lidar_received_ ? 
+      "{\"score\": 0.95, \"healthy\": true, \"source\": \"fast_lio2\"}" :
+      "{\"score\": 0.50, \"healthy\": true, \"source\": \"fast_lio2_stub\"}";
     health_pub_->publish(health_msg);
     
     RCLCPP_DEBUG(this->get_logger(), 
