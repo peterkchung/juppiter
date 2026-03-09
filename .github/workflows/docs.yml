@@ -1,0 +1,104 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'docs/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'docs/**'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install -r docs/requirements.txt
+
+      - name: Build documentation
+        run: |
+          cd docs
+          mkdocs build --strict
+
+      - name: Upload build artifacts
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-preview
+          path: docs/site/
+          retention-days: 7
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          path: source
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install -r source/docs/requirements.txt
+
+      - name: Build site
+        run: |
+          cd source/docs
+          mkdocs build
+
+      - name: Deploy to docs branch
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Clone the docs branch (or create it if it doesn't exist)
+          git clone --branch docs --single-branch . docs-branch 2>/dev/null || {
+            git init docs-branch
+            cd docs-branch
+            git checkout -b docs
+            cd ..
+          }
+          
+          cd docs-branch
+          
+          # Remove old content
+          git rm -rf . || true
+          
+          # Copy built site
+          cp -r ../source/docs/site/* .
+          
+          # Create .nojekyll
+          touch .nojekyll
+          
+          # Commit and push
+          git add .
+          git commit -m "Deploy documentation from ${GITHUB_REF_NAME}: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" || true
+          git push origin docs --force || git push --set-upstream origin docs --force
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
