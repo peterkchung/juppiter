@@ -31,19 +31,22 @@ target_include_directories(${PROJECT_NAME} PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 
+ament_target_dependencies(${PROJECT_NAME}
+  rclcpp
+  nav_msgs
+  sensor_msgs
+  geometry_msgs
+  std_msgs
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+  sensor_interfaces
+  lio_estimator_interfaces
+  vio_estimator_interfaces
+)
+
 target_link_libraries(${PROJECT_NAME}
-  rclcpp::rclcpp
-  nav_msgs::nav_msgs
-  sensor_msgs::sensor_msgs
-  geometry_msgs::geometry_msgs
-  std_msgs::std_msgs
-  tf2::tf2
-  tf2_ros::tf2_ros
-  tf2_geometry_msgs::tf2_geometry_msgs
   yaml-cpp
-  sensor_interfaces::sensor_interfaces
-  lio_estimator_interfaces::lio_estimator_interfaces
-  vio_estimator_interfaces::vio_estimator_interfaces
 )
 
 add_executable(fusion_node

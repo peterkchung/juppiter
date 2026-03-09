@@ -48,17 +48,20 @@ target_include_directories(${PROJECT_NAME} PUBLIC
   ${EIGEN3_INCLUDE_DIRS}
 )
 
+ament_target_dependencies(${PROJECT_NAME}
+  rclcpp
+  nav_msgs
+  sensor_msgs
+  geometry_msgs
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+  vio_estimator_interfaces
+  cv_bridge
+  image_transport
+)
+
 target_link_libraries(${PROJECT_NAME}
-  rclcpp::rclcpp
-  nav_msgs::nav_msgs
-  sensor_msgs::sensor_msgs
-  geometry_msgs::geometry_msgs
-  tf2::tf2
-  tf2_ros::tf2_ros
-  tf2_geometry_msgs::tf2_geometry_msgs
-  vio_estimator_interfaces::vio_estimator_interfaces
-  cv_bridge::cv_bridge
-  image_transport::image_transport
   ${OpenCV_LIBS}
 )
 

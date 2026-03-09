@@ -26,13 +26,13 @@ target_include_directories(kinetic_estimator_node PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 
-target_link_libraries(kinetic_estimator_node
-  rclcpp::rclcpp
-  nav_msgs::nav_msgs
-  sensor_msgs::sensor_msgs
-  geometry_msgs::geometry_msgs
-  tf2::tf2
-  tf2_ros::tf2_ros
+ament_target_dependencies(kinetic_estimator_node
+  rclcpp
+  nav_msgs
+  sensor_msgs
+  geometry_msgs
+  tf2
+  tf2_ros
 )
 
 install(TARGETS kinetic_estimator_node

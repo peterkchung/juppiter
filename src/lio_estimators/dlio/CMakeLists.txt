@@ -44,17 +44,20 @@ target_include_directories(${PROJECT_NAME} PUBLIC
   ${EIGEN3_INCLUDE_DIRS}
 )
 
+ament_target_dependencies(${PROJECT_NAME}
+  rclcpp
+  nav_msgs
+  sensor_msgs
+  geometry_msgs
+  pcl_ros
+  pcl_conversions
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+  lio_estimator_interfaces
+)
+
 target_link_libraries(${PROJECT_NAME}
-  rclcpp::rclcpp
-  nav_msgs::nav_msgs
-  sensor_msgs::sensor_msgs
-  geometry_msgs::geometry_msgs
-  pcl_ros::pcl_ros
-  pcl_conversions::pcl_conversions
-  tf2::tf2
-  tf2_ros::tf2_ros
-  tf2_geometry_msgs::tf2_geometry_msgs
-  lio_estimator_interfaces::lio_estimator_interfaces
   ${PCL_LIBRARIES}
 )
 
