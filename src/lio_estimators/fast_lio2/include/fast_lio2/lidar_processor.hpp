@@ -1,5 +1,5 @@
-# About: LiDAR Processor for FAST-LIO2
-# Point cloud preprocessing and undistortion
+// About: LiDAR Processor for FAST-LIO2
+// Point cloud preprocessing and undistortion
 
 #ifndef FAST_LIO2__LIDAR_PROCESSOR_HPP_
 #define FAST_LIO2__LIDAR_PROCESSOR_HPP_

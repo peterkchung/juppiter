@@ -1,5 +1,5 @@
-# About: ikd-Tree Manager for FAST-LIO2
-# Incremental KD-Tree for fast nearest neighbor search
+// About: ikd-Tree Manager for FAST-LIO2
+// Incremental KD-Tree for fast nearest neighbor search
 
 #ifndef FAST_LIO2__IKD_TREE_MANAGER_HPP_
 #define FAST_LIO2__IKD_TREE_MANAGER_HPP_

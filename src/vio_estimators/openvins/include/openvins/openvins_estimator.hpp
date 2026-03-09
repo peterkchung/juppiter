@@ -1,5 +1,5 @@
-# About: OpenVINS Estimator Implementation
-# MSCKF-based VIO for juppiter edge tier
+// About: OpenVINS Estimator Implementation
+// MSCKF-based VIO for juppiter edge tier
 
 #ifndef OPENVINS__OPENVINS_ESTIMATOR_HPP_
 #define OPENVINS__OPENVINS_ESTIMATOR_HPP_

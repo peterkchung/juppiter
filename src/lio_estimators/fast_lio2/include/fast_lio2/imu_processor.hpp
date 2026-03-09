@@ -1,5 +1,5 @@
-# About: IMU Processor for FAST-LIO2
-# IMU integration and bias estimation
+// About: IMU Processor for FAST-LIO2
+// IMU integration and bias estimation
 
 #ifndef FAST_LIO2__IMU_PROCESSOR_HPP_
 #define FAST_LIO2__IMU_PROCESSOR_HPP_

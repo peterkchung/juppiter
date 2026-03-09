@@ -1,5 +1,5 @@
-# About: FAST-LIO2 Estimator Implementation
-# Wraps FAST-LIO2 algorithm for juppiter integration
+// About: FAST-LIO2 Estimator Implementation
+// Wraps FAST-LIO2 algorithm for juppiter integration
 
 #ifndef FAST_LIO2__FAST_LIO2_ESTIMATOR_HPP_
 #define FAST_LIO2__FAST_LIO2_ESTIMATOR_HPP_

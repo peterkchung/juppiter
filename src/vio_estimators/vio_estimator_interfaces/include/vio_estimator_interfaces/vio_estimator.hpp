@@ -1,6 +1,6 @@
-# About: VIO Estimator Interface
-# Defines the contract for all Visual-Inertial Odometry implementations
-# Supports: ORB-SLAM3, OpenVINS, VINS-Fusion, LEVIO, UL-VIO
+// About: VIO Estimator Interface
+// Defines the contract for all Visual-Inertial Odometry implementations
+// Supports: ORB-SLAM3, OpenVINS, VINS-Fusion, LEVIO, UL-VIO
 
 #ifndef VIO_ESTIMATOR_INTERFACES__VIO_ESTIMATOR_HPP_
 #define VIO_ESTIMATOR_INTERFACES__VIO_ESTIMATOR_HPP_

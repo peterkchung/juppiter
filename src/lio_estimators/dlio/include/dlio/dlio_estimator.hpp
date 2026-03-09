@@ -1,5 +1,5 @@
-# About: DLIO Estimator Implementation
-# Lighter LIO alternative for edge deployment
+// About: DLIO Estimator Implementation
+// Lighter LIO alternative for edge deployment
 
 #ifndef DLIO__DLIO_ESTIMATOR_HPP_
 #define DLIO__DLIO_ESTIMATOR_HPP_

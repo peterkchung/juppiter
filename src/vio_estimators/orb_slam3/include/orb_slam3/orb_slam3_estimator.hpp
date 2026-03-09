@@ -1,5 +1,5 @@
-# About: ORB-SLAM3 Estimator Implementation
-# Stereo-inertial VIO for juppiter dev tier
+// About: ORB-SLAM3 Estimator Implementation
+// Stereo-inertial VIO for juppiter dev tier
 
 #ifndef ORB_SLAM3__ORB_SLAM3_ESTIMATOR_HPP_
 #define ORB_SLAM3__ORB_SLAM3_ESTIMATOR_HPP_
