@@ -2,42 +2,42 @@
 # Bridges Gazebo Harmonic topics to ROS 2 topics
 
 # LiDAR PointCloud
-- topic_name: /lidar/points
+- ros_topic_name: /lidar/points
+  gz_topic_name: /lidar/points
   ros_type_name: sensor_msgs/msg/PointCloud2
   gz_type_name: gz.msgs.PointCloudPacked
   direction: GZ_TO_ROS
-  qos_profile: SENSOR_DATA
 
-# Stereo Cameras
-- topic_name: /stereo/left/image_raw
+# Stereo Cameras  
+- ros_topic_name: /stereo/left/image_raw
+  gz_topic_name: /stereo/left/image
   ros_type_name: sensor_msgs/msg/Image
   gz_type_name: gz.msgs.Image
   direction: GZ_TO_ROS
-  qos_profile: SENSOR_DATA
 
-- topic_name: /stereo/right/image_raw
+- ros_topic_name: /stereo/right/image_raw
+  gz_topic_name: /stereo/right/image
   ros_type_name: sensor_msgs/msg/Image
   gz_type_name: gz.msgs.Image
   direction: GZ_TO_ROS
-  qos_profile: SENSOR_DATA
 
 # IMU
-- topic_name: /imu/data
+- ros_topic_name: /imu/data
+  gz_topic_name: /imu/data
   ros_type_name: sensor_msgs/msg/Imu
   gz_type_name: gz.msgs.IMU
   direction: GZ_TO_ROS
-  qos_profile: SENSOR_DATA
 
 # Wheel Odometry
-- topic_name: /wheel/odometry
+- ros_topic_name: /wheel/odometry
+  gz_topic_name: /wheel/odometry
   ros_type_name: nav_msgs/msg/Odometry
   gz_type_name: gz.msgs.Odometry
   direction: GZ_TO_ROS
-  qos_profile: DEFAULT
 
-# Clock for simulation time
-- topic_name: /clock
+# Clock
+- ros_topic_name: /clock
+  gz_topic_name: /clock
   ros_type_name: rosgraph_msgs/msg/Clock
   gz_type_name: gz.msgs.Clock
   direction: GZ_TO_ROS
-  qos_profile: DEFAULT

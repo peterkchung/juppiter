@@ -1,0 +1,78 @@
+%YAML:1.0
+# About: Camera calibration for Gazebo simulation
+# Generated from rover.urdf.xacro parameters
+# Resolution: 1280x720, FOV: 60°, Baseline: 0.15m
+# Camera position: x=+0.35m, y=±0.075m, z=+0.25m relative to IMU
+
+cam0:
+  # Extrinsic: Camera0 to IMU (left camera)
+  # T_imu_cam0 from URDF: 
+  #   x=+0.35 (forward), y=+0.075 (left), z=+0.25 (up)
+  T_cam_imu:
+    - [0.9999997, 0.0007963, 0.0006682, 0.35]
+    - [-0.0007963, 0.9999997, -0.0006682, 0.075]
+    - [-0.0006682, 0.0006682, 0.9999996, 0.25]
+    - [0.0, 0.0, 0.0, 1.0]
+  
+  # Camera model
+  camera_model: pinhole
+  
+  # Distortion model (Gazebo uses perfect pinhole)
+  distortion_model: radtan
+  distortion_coeffs: [0.0, 0.0, 0.0, 0.0]
+  
+  # Intrinsics: fx, fy, cx, cy
+  # Calculated from 60° FOV and 1280x720 resolution
+  # fx = width / (2 * tan(FOV/2)) = 1280 / (2 * tan(30°)) = 1108.51
+  intrinsics: [1108.5125, 1108.5125, 640.0, 360.0]
+  
+  # Resolution
+  resolution: [1280, 720]
+  
+  # Camera rate (Hz)
+  camera_rate: 20.0
+
+cam1:
+  # Extrinsic: Camera1 to IMU (right camera)
+  # T_imu_cam1 from URDF:
+  #   x=+0.35, y=-0.075, z=+0.25
+  T_cam_imu:
+    - [0.9999997, 0.0007963, 0.0006682, 0.35]
+    - [-0.0007963, 0.9999997, -0.0006682, -0.075]
+    - [-0.0006682, 0.0006682, 0.9999996, 0.25]
+    - [0.0, 0.0, 0.0, 1.0]
+  
+  # Relative transform between cameras (T_cam1_cam0)
+  # Right camera is 15cm to the left of left camera
+  T_cn_cnm1:
+    - [1.0, 0.0, 0.0, -0.15]   # 15cm baseline
+    - [0.0, 1.0, 0.0, 0.0]
+    - [0.0, 0.0, 1.0, 0.0]
+    - [0.0, 0.0, 0.0, 1.0]
+  
+  # Same intrinsics as cam0 (identical cameras in simulation)
+  camera_model: pinhole
+  distortion_model: radtan
+  distortion_coeffs: [0.0, 0.0, 0.0, 0.0]
+  intrinsics: [1108.5125, 1108.5125, 640.0, 360.0]
+  resolution: [1280, 720]
+  camera_rate: 20.0
+
+# IMU configuration (for completeness, also in YAML)
+imu0:
+  # IMU to IMU (identity, IMU is reference)
+  T_imu_imu:
+    - [1.0, 0.0, 0.0, 0.0]
+    - [0.0, 1.0, 0.0, 0.0]
+    - [0.0, 0.0, 1.0, 0.0]
+    - [0.0, 0.0, 0.0, 1.0]
+  
+  # IMU noise parameters (match Gazebo simulation)
+  # These will be overridden by ROS parameters
+  accelerometer_noise_density: 0.002
+  accelerometer_random_walk: 0.0001
+  gyroscope_noise_density: 0.02
+  gyroscope_random_walk: 0.0001
+  
+  # Update rate
+  update_rate: 200.0
