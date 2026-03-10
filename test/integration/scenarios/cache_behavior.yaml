@@ -1,0 +1,109 @@
+# Cache Behavior FDIIR Test Scenario
+# Validates 100ms TTL cache at 20Hz fusion rate
+# 
+# Expected Behavior:
+# - 20Hz fusion = 50ms period
+# - 100ms TTL cache = 2 fusion cycles
+# - Expected ~50% cache hit rate
+# - Service calls every 100ms (not every 50ms)
+
+scenario:
+  name: "health_cache_validation"
+  description: "Validates 100ms TTL cache behavior at 20Hz fusion"
+  duration: 10.0
+  compute_profile: "dev"
+  
+  # Configuration
+  config:
+    fusion_rate_hz: 20.0           # 20Hz = 50ms period
+    health_cache_ttl_ms: 100.0    # 100ms TTL = 2 cycles
+    health_service_timeout_ms: 50.0
+    
+  # Initial conditions - all healthy
+  initial_health:
+    overall: 0.95
+    lio: 0.95
+    vio: 0.90
+    kinematic: 0.98
+    
+  # No faults - just monitor cache behavior
+  faults:
+    - time: 0.0
+      action: "start_monitoring"
+      monitors:
+        - "service_call_count"
+        - "cache_hit_count"
+        - "cache_miss_count"
+        
+  # Validation assertions
+  assertions:
+    # After 10 seconds at 20Hz = 200 fusion cycles
+    - time: 10.0
+      check: "total_fusion_cycles"
+      expected: 200
+      tolerance: 10
+      
+    # Service calls should be ~100 (every 100ms for 10s)
+    - time: 10.0
+      check: "service_call_count"
+      expected_range: [90, 110]
+      description: "Should make ~100 service calls (every 100ms)"
+      
+    # Cache hits should be ~100 (half of 200 cycles)
+    - time: 10.0
+      check: "cache_hit_count"
+      expected_range: [90, 110]
+      description: "Should have ~100 cache hits"
+      
+    # Cache hit rate should be ~50%
+    - time: 10.0
+      check: "cache_hit_rate"
+      expected_range: [0.45, 0.55]
+      description: "Cache hit rate should be ~50% (2 out of 4 cycles)"
+      
+    # Verify no duplicate service calls within TTL window
+    - time_range: [0.0, 10.0]
+      check: "min_time_between_service_calls"
+      min_value: 0.095  # At least 95ms between calls (100ms TTL - tolerance)
+      
+  # Performance metrics
+  metrics:
+    - name: "cache_efficiency"
+      type: "ratio"
+      description: "Ratio of cache hits to total requests"
+      
+    - name: "service_call_frequency"
+      type: "rate"
+      event: "health_service_call"
+      window_seconds: 1.0
+      expected_hz: 10.0  # Should be ~10Hz (100ms period)
+      tolerance: 1.0
+      
+    - name: "latency_reduction"
+      type: "comparison"
+      compare: "cached_response_time"
+      to: "service_response_time"
+      expected_ratio: 0.1  # Cached should be 10x faster
+      description: "Cached responses should be significantly faster than service calls"
+      
+  # Pass/fail criteria
+  pass_criteria:
+    - "Cache TTL is exactly 100ms as configured"
+    - "Service calls are made at ~10Hz (100ms interval)"
+    - "Cache hit rate is ~50% at 20Hz fusion rate"
+    - "No service calls within 95ms of previous call"
+    - "Cached responses are significantly faster than service calls"
+    
+  fail_criteria:
+    - "Service calls exceed 120 in 10 seconds (too frequent)"
+    - "Service calls less than 80 in 10 seconds (cache not expiring)"
+    - "Cache hit rate outside 45-55% range"
+    - "Duplicate service calls within TTL window"
+    - "No caching occurring (0% hit rate)"
+    
+  # Edge compute validation
+  edge_compute_checks:
+    - "100ms TTL reduces service calls by 50% at 20Hz"
+    - "CPU usage reduced compared to no-cache scenario"
+    - "Memory overhead minimal (single cached health struct)"
+    - "Latency remains bounded (max 100ms stale data)"
