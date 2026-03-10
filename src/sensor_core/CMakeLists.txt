@@ -11,6 +11,7 @@ find_package(sensor_interfaces REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(common_msgs REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
 # Library
@@ -31,6 +32,7 @@ ament_target_dependencies(${PROJECT_NAME}
   pluginlib
   sensor_msgs
   std_msgs
+  common_msgs
   yaml-cpp
 )
 
@@ -74,6 +76,7 @@ ament_export_dependencies(
   pluginlib
   sensor_msgs
   std_msgs
+  common_msgs
   yaml-cpp
 )
 
