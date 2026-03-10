@@ -11,7 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-// About: Implementation of health monitoring and aggregation.
+// About: Implementation of health monitoring for on-demand service queries.
+// Aggregates sensor and estimator health. Does NOT determine system mode.
 
 #include "sensor_core/health_monitor.hpp"
 
@@ -20,13 +21,8 @@
 namespace sensor_core
 {
 
-HealthMonitor::HealthMonitor(
-  rclcpp::Node::SharedPtr node,
-  double nominal_threshold,
-  double degraded_threshold)
-: node_(node),
-  nominal_threshold_(nominal_threshold),
-  degraded_threshold_(degraded_threshold)
+HealthMonitor::HealthMonitor(rclcpp::Node::SharedPtr node)
+: node_(node)
 {
 }
 
@@ -38,51 +34,61 @@ void HealthMonitor::register_driver(
   drivers_[name] = driver;
 }
 
-PerceptionHealth HealthMonitor::update()
+common_msgs::msg::PerceptionHealth HealthMonitor::aggregate_health()
 {
   std::lock_guard<std::mutex> lock(mutex_);
   
-  // Collect health from all drivers
+  // Collect health from all registered drivers (sensors)
   std::map<std::string, sensor_interfaces::HealthStatus> statuses;
   for (const auto & [name, driver] : drivers_) {
-    statuses[name] = driver->get_health();
+    statuses[name] = driver->get_health_status();
   }
   
-  // Compute scores
-  current_health_.stamp = node_->now();
-  current_health_.overall_score = compute_overall_score(statuses);
+  // Build health message (ARM-optimized field ordering)
+  common_msgs::msg::PerceptionHealth health;
+  health.stamp = node_->now();
   
-  // Determine mode
-  current_health_.estimator_mode = determine_mode();
-  
-  // Check sync status
-  if (!sync_status_.is_synchronized) {
-    current_health_.fault_flags.push_back("time_sync_violation");
-  }
-  
-  return current_health_;
-}
-
-PerceptionHealth HealthMonitor::get_health() const
-{
-  std::lock_guard<std::mutex> lock(mutex_);
-  return current_health_;
-}
-
-std::string HealthMonitor::determine_mode() const
-{
-  if (current_health_.overall_score >= nominal_threshold_) {
-    return "nominal";
-  } else if (current_health_.overall_score < degraded_threshold_) {
-    return "safe_stop";
-  } else {
-    // Determine which subsystem is failing
-    if (current_health_.lidar_score < current_health_.vision_score) {
-      return "degraded_lidar";
-    } else {
-      return "degraded_vision";
+  // Sensor-level health scores
+  for (const auto & [name, status] : statuses) {
+    if (name.find("lidar") != std::string::npos) {
+      health.lidar_health = status.score;
+    } else if (name.find("camera") != std::string::npos || 
+               name.find("stereo") != std::string::npos) {
+      health.camera_health = status.score;
+    } else if (name.find("imu") != std::string::npos) {
+      health.imu_health = status.score;
     }
   }
+  
+  // Time sync status
+  health.time_sync_skew_ms = sync_status_.skew_max_ms;
+  health.time_sync_valid = sync_status_.is_valid;
+  
+  // Fault flags
+  health.fault_flags = compute_fault_flags(statuses);
+  
+  // Note: Estimator health (lio, vio, kinematic) is monitored by fusion_core
+  // sensor_core only monitors raw sensor health
+  health.lio_health = 1.0f;  // Placeholder - fusion_core tracks this
+  health.vio_health = 1.0f;
+  health.kinematic_health = 1.0f;
+  health.overall_health = 1.0f;  // Placeholder
+  
+  // Mode is determined by fusion_core, not sensor_core
+  health.mode = common_msgs::msg::PerceptionHealth::MODE_NOMINAL;
+  health.mode_string = "nominal";
+  health.service_responsive = true;
+  
+  // Cache for quick retrieval
+  cached_health_ = health;
+  
+  return health;
+}
+
+common_msgs::msg::PerceptionHealth HealthMonitor::get_cached_health() const
+{
+  std::lock_guard<std::mutex> lock(mutex_);
+  return cached_health_;
 }
 
 void HealthMonitor::set_sync_status(const sensor_interfaces::TimeSyncStatus & status)
@@ -91,33 +97,30 @@ void HealthMonitor::set_sync_status(const sensor_interfaces::TimeSyncStatus & st
   sync_status_ = status;
 }
 
-float HealthMonitor::compute_overall_score(
+uint16_t HealthMonitor::compute_fault_flags(
   const std::map<std::string, sensor_interfaces::HealthStatus> & statuses)
 {
-  if (statuses.empty()) {
-    return 0.0f;
-  }
-  
-  // Compute weighted raw score (PRD formula starting point)
-  // Note: Full PRD formula requires more context (covariance, staleness, etc.)
-  float total_score = 0.0f;
-  float total_weight = 0.0f;
+  uint16_t flags = common_msgs::msg::PerceptionHealth::FAULT_NONE;
   
   for (const auto & [name, status] : statuses) {
-    total_score += status.health_score * 0.33f;  // Equal weight for now
-    total_weight += 0.33f;
-    
-    // Track subsystem scores
-    if (name.find("lidar") != std::string::npos) {
-      current_health_.lidar_score = status.health_score;
-    } else if (name.find("camera") != std::string::npos || name.find("stereo") != std::string::npos) {
-      current_health_.vision_score = status.health_score;
-    } else if (name.find("imu") != std::string::npos) {
-      current_health_.imu_score = status.health_score;
+    // Check for stale data
+    if (status.flags & sensor_interfaces::FaultFlags::STALE) {
+      if (name.find("lidar") != std::string::npos) {
+        flags |= common_msgs::msg::PerceptionHealth::FAULT_LIDAR_STALE;
+      } else if (name.find("camera") != std::string::npos) {
+        flags |= common_msgs::msg::PerceptionHealth::FAULT_CAMERA_STALE;
+      } else if (name.find("imu") != std::string::npos) {
+        flags |= common_msgs::msg::PerceptionHealth::FAULT_IMU_STALE;
+      }
     }
   }
   
-  return total_weight > 0 ? total_score / total_weight : 0.0f;
+  // Time sync fault
+  if (!sync_status_.is_valid) {
+    flags |= common_msgs::msg::PerceptionHealth::FAULT_TIME_SYNC;
+  }
+  
+  return flags;
 }
 
 }  // namespace sensor_core

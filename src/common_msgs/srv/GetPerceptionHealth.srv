@@ -1,0 +1,8 @@
+# GetPerceptionHealth.srv
+# On-demand health query service
+# Request: Empty (just trigger current health aggregation)
+# Response: Complete health status
+
+---
+# ARM-optimized health message (48-byte fixed payload)
+PerceptionHealth health

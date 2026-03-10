@@ -11,11 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-// About: Main orchestration node implementation.
+// About: Main sensor orchestration node. Loads providers via pluginlib,
+// monitors time sync, and provides health data via on-demand service.
+// Does NOT publish mode - mode authority belongs to fusion_core.
 
 #include "sensor_core/sensor_bridge_node.hpp"
-
-#include <std_msgs/msg/string.hpp>
 
 namespace sensor_core
 {
@@ -29,8 +29,6 @@ SensorBridgeNode::SensorBridgeNode()
   declare_parameter<double>("monitor_rate_hz", 10.0);
   declare_parameter<double>("target_skew_ms", 5.0);
   declare_parameter<double>("max_skew_ms", 10.0);
-  declare_parameter<double>("nominal_health_threshold", 0.75);
-  declare_parameter<double>("degraded_health_threshold", 0.55);
 
   // Read parameters
   provider_classes_ = get_parameter("providers").as_string_array();
@@ -46,11 +44,8 @@ SensorBridgeNode::SensorBridgeNode()
   double max_skew = get_parameter("max_skew_ms").as_double();
   time_sync_ = std::make_unique<TimeSynchronizer>(target_skew, max_skew);
 
-  double nominal_thresh = get_parameter("nominal_health_threshold").as_double();
-  double degraded_thresh = get_parameter("degraded_health_threshold").as_double();
-  health_monitor_ = std::make_unique<HealthMonitor>(
-    std::static_pointer_cast<rclcpp::Node>(shared_from_this()),
-    nominal_thresh, degraded_thresh);
+  // Initialize health monitor (no thresholds - fusion_core determines mode)
+  health_monitor_ = std::make_unique<HealthMonitor>(shared_from_this());
 
   // Initialize plugin loader
   try {
@@ -62,15 +57,19 @@ SensorBridgeNode::SensorBridgeNode()
     throw;
   }
 
-  // Create publishers
-  health_pub_ = create_publisher<std_msgs::msg::String>("/perception/health", 10);
-  mode_pub_ = create_publisher<std_msgs::msg::String>("/perception/mode", 10);
+  // Create health service (on-demand, no continuous publishing)
+  health_service_ = create_service<common_msgs::srv::GetPerceptionHealth>(
+    "/perception/get_health",
+    std::bind(&SensorBridgeNode::on_health_request, this, 
+              std::placeholders::_1, std::placeholders::_2));
+
+  RCLCPP_INFO(get_logger(), "Health service ready: /perception/get_health");
 
   // Load and start providers
   load_providers();
   start_providers();
 
-  // Start monitoring loop
+  // Start monitoring loop (for time sync, not for publishing)
   auto monitor_period = std::chrono::duration<double>(1.0 / monitor_rate_hz_);
   monitor_timer_ = create_timer(
     std::chrono::duration_cast<std::chrono::nanoseconds>(monitor_period),
@@ -148,7 +147,7 @@ void SensorBridgeNode::stop_providers()
       driver->shutdown();
       RCLCPP_INFO(get_logger(), "Stopped provider: %s", name.c_str());
     } catch (const std::exception & e) {
-      RCLCPP_ERROR(get_logger(), "Exception stopping provider %s: %s", 
+      RCPP_ERROR(get_logger(), "Exception stopping provider %s: %s", 
                    name.c_str(), e.what());
     }
   }
@@ -167,31 +166,28 @@ void SensorBridgeNode::monitor_loop()
   auto sync_status = time_sync_->get_status();
   health_monitor_->set_sync_status(sync_status);
 
-  // Update and publish health
-  publish_health();
-
   // Log warnings if out of sync
-  if (!sync_status.is_synchronized) {
+  if (!sync_status.is_valid) {
     RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000,
       "Time sync violation: mean=%.2fms, p95=%.2fms",
       sync_status.mean_skew_ms, sync_status.p95_skew_ms);
   }
 }
 
-void SensorBridgeNode::publish_health()
+void SensorBridgeNode::on_health_request(
+  const std::shared_ptr<common_msgs::srv::GetPerceptionHealth::Request> /*request*/,
+  std::shared_ptr<common_msgs::srv::GetPerceptionHealth::Response> response)
 {
-  auto health = health_monitor_->update();
-
-  // Publish health message (simplified - would use custom message in full implementation)
-  std_msgs::msg::String health_msg;
-  health_msg.data = "health: " + std::to_string(health.overall_score) + 
-                   ", mode: " + health.estimator_mode;
-  health_pub_->publish(health_msg);
-
-  // Publish mode
-  std_msgs::msg::String mode_msg;
-  mode_msg.data = health.estimator_mode;
-  mode_pub_->publish(mode_msg);
+  // Aggregate health on-demand
+  response->health = health_monitor_->aggregate_health();
+  
+  RCLCPP_DEBUG(get_logger(), 
+    "Health request: overall=%.2f, lidar=%.2f, camera=%.2f, imu=%.2f, sync=%s",
+    response->health.overall_health,
+    response->health.lidar_health,
+    response->health.camera_health,
+    response->health.imu_health,
+    response->health.time_sync_valid ? "valid" : "violation");
 }
 
 }  // namespace sensor_core

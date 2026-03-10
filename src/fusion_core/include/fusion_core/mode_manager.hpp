@@ -1,5 +1,5 @@
 // About: Mode Manager
-// Manages fusion mode transitions and handoff logic
+// Single authority for fusion mode determination and transitions
 
 #ifndef FUSION_CORE__MODE_MANAGER_HPP_
 #define FUSION_CORE__MODE_MANAGER_HPP_
@@ -7,8 +7,10 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <map>
 
 #include "rclcpp/rclcpp.hpp"
+#include "common_msgs/msg/perception_health.hpp"
 #include "fusion_core/fusion_engine.hpp"
 
 namespace juppiter
@@ -34,9 +36,15 @@ struct ModeTransition
 using ModeChangeCallback = std::function<void(const ModeTransition &)>;
 
 /**
- * @brief Manages mode transitions with hysteresis and safety checks
+ * @brief Single authority for mode determination with hysteresis and safety checks
  * 
- * Ensures smooth handoffs between estimators with:
+ * Consolidates all mode determination logic:
+ * - Nominal: all estimators healthy (overall_health >= 0.75)
+ * - Degraded LIO: LIO health < 0.75 (VIO becomes primary)
+ * - Degraded VIO: VIO health < 0.75 (LIO becomes primary)
+ * - Safe Stop: overall health < 0.55 or max age exceeded
+ * 
+ * Features:
  * - Persistence counters to prevent mode flutter
  * - Covariance inflation during transitions
  * - Discontinuity limits (position/yaw jumps)
@@ -64,21 +72,20 @@ public:
   void registerModeChangeCallback(ModeChangeCallback callback);
 
   /**
-   * @brief Evaluate mode based on current health scores
-   * @param lio_health LIO health score
-   * @param vio_health VIO health score
-   * @param kinematic_health Kinematic health score
-   * @return Recommended mode (may not trigger immediate switch)
+   * @brief Determine mode from perception health (single authority)
+   * 
+   * This is THE ONLY function that should determine system mode.
+   * All mode decisions go through here.
+   * 
+   * @param health Complete health status from sensor_core
+   * @return Authoritative mode for the system
    */
-  FusionMode evaluateMode(
-    float lio_health,
-    float vio_health,
-    float kinematic_health);
+  FusionMode determineMode(const common_msgs::msg::PerceptionHealth & health);
 
   /**
    * @brief Check if mode switch should occur
    * Applies persistence rules and safety checks
-   * @param candidate_mode Mode recommended by evaluation
+   * @param candidate_mode Mode recommended by determineMode
    * @return true if switch should happen now
    */
   bool shouldSwitchMode(FusionMode candidate_mode);
@@ -111,7 +118,7 @@ public:
 
   /**
    * @brief Update transition state (call periodically)
- * @param dt Time delta since last update
+   * @param dt Time delta since last update
    */
   void updateTransition(float dt);
 
@@ -120,6 +127,20 @@ public:
    * @return List of recent mode transitions
    */
   std::vector<ModeTransition> getTransitionHistory() const;
+
+  /**
+   * @brief Convert mode to string for topic publishing
+   * @param mode Fusion mode
+   * @return String representation ("nominal", "degraded_lio", etc.)
+   */
+  std::string modeToString(FusionMode mode) const;
+
+  /**
+   * @brief Convert string to mode
+   * @param str Mode string
+   * @return FusionMode value
+   */
+  FusionMode stringToMode(const std::string & str) const;
 
   /**
    * @brief Force mode (for manual override/testing)
@@ -136,6 +157,11 @@ private:
   FusionMode current_mode_{FusionMode::NOMINAL};
   FusionMode candidate_mode_{FusionMode::NOMINAL};
   int persistence_counter_{0};
+  
+  // Health thresholds (single source of truth)
+  float nominal_threshold_{0.75f};
+  float degraded_threshold_{0.55f};
+  float safe_stop_threshold_{0.55f};
   
   // Configuration
   int cycles_to_confirm_{3};
@@ -160,13 +186,15 @@ private:
   std::map<std::string, float> last_health_scores_;
 
   // Private methods
-  std::string modeToString(FusionMode mode) const;
-  FusionMode stringToMode(const std::string & str) const;
   void notifyCallbacks(const ModeTransition & transition);
   void recordTransition(const ModeTransition & transition);
   bool checkDiscontinuityLimits(
     FusionMode from,
     FusionMode to);
+  FusionMode determineDegradedMode(
+    float lio_health,
+    float vio_health,
+    float kinematic_health);
 };
 
 }  // namespace fusion

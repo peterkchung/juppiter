@@ -1,7 +1,9 @@
 // About: Mode Manager Implementation
-// Mode transition logic with hysteresis and safety checks
+// Single authority for mode determination with hysteresis and safety checks
 
 #include "fusion_core/mode_manager.hpp"
+
+#include <algorithm>
 
 namespace juppiter
 {
@@ -18,11 +20,13 @@ bool ModeManager::initialize(
 {
   node_ = node;
   
-  // TODO: Load YAML configuration
+  // TODO: Load YAML configuration for thresholds
+  // nominal_threshold_ = config["nominal_threshold"];
+  // degraded_threshold_ = config["degraded_threshold"];
+  // safe_stop_threshold_ = config["safe_stop_threshold"];
   
   RCLCPP_INFO(node_->get_logger(), 
-    "ModeManager initialized (config: %s)", 
-    config_path.c_str());
+    "ModeManager initialized (single authority for mode decisions)");
   
   initialized_ = true;
   return true;
@@ -33,33 +37,87 @@ void ModeManager::registerModeChangeCallback(ModeChangeCallback callback)
   callbacks_.push_back(callback);
 }
 
-FusionMode ModeManager::evaluateMode(
+FusionMode ModeManager::determineMode(const common_msgs::msg::PerceptionHealth & health)
+{
+  // Store health scores for callbacks
+  last_health_scores_["lio"] = health.lio_health;
+  last_health_scores_["vio"] = health.vio_health;
+  last_health_scores_["kinematic"] = health.kinematic_health;
+  last_health_scores_["lidar"] = health.lidar_health;
+  last_health_scores_["camera"] = health.camera_health;
+  last_health_scores_["imu"] = health.imu_health;
+  last_health_scores_["overall"] = health.overall_health;
+  
+  // Single authority for mode determination
+  // Check safe_stop first (highest priority)
+  if (health.overall_health < safe_stop_threshold_) {
+    return FusionMode::SAFE_STOP;
+  }
+  
+  // Check for degraded modes
+  if (health.overall_health < nominal_threshold_) {
+    // Determine which estimator is degraded
+    return determineDegradedMode(
+      health.lio_health, 
+      health.vio_health, 
+      health.kinematic_health);
+  }
+  
+  // Check for critical sensor faults that should trigger safe_stop
+  if (health.fault_flags & common_msgs::msg::PerceptionHealth::FAULT_SERVICE_UNAVAILABLE) {
+    // Service timeout - check if we've exceeded max age
+    // This is handled by health_client with decay, but double-check here
+    if (health.overall_health < safe_stop_threshold_) {
+      return FusionMode::SAFE_STOP;
+    }
+  }
+  
+  // All clear - nominal mode
+  return FusionMode::NOMINAL;
+}
+
+FusionMode ModeManager::determineDegradedMode(
   float lio_health,
   float vio_health,
   float kinematic_health)
 {
-  // Store health scores
-  last_health_scores_["lio"] = lio_health;
-  last_health_scores_["vio"] = vio_health;
-  last_health_scores_["kinematic"] = kinematic_health;
+  // Priority order for degraded mode selection:
+  // 1. If LIO is degraded -> DEGRADED_LIO (VIO becomes primary)
+  // 2. If VIO is degraded -> DEGRADED_VIO (LIO becomes primary)
+  // 3. If both are ok but overall degraded -> check which is worse
   
-  // Determine appropriate mode
-  float min_health = std::min({lio_health, vio_health, kinematic_health});
+  bool lio_degraded = lio_health < degraded_threshold_;
+  bool vio_degraded = vio_health < degraded_threshold_;
+  bool kinematic_degraded = kinematic_health < degraded_threshold_;
   
-  if (min_health < 0.55f) {
-    return FusionMode::SAFE_STOP;
-  } else if (min_health < 0.75f) {
-    // Determine which sensor is degraded
-    if (lio_health < 0.75f) {
-      return FusionMode::DEGRADED_LIO;
-    } else if (vio_health < 0.75f) {
-      return FusionMode::DEGRADED_VIO;
-    } else {
+  if (lio_degraded && !vio_degraded) {
+    // LIO bad, VIO good -> use VIO primarily
+    return FusionMode::DEGRADED_LIO;
+  }
+  
+  if (vio_degraded && !lio_degraded) {
+    // VIO bad, LIO good -> use LIO primarily
+    return FusionMode::DEGRADED_VIO;
+  }
+  
+  if (lio_degraded && vio_degraded) {
+    // Both LIO and VIO degraded
+    if (!kinematic_degraded) {
+      // At least kinematic is working - rely on that
       return FusionMode::DEGRADED_KINEMATIC;
+    } else {
+      // Everything degraded -> safe_stop
+      return FusionMode::SAFE_STOP;
     }
   }
   
-  return FusionMode::NOMINAL;
+  // Neither is below threshold individually, but overall is degraded
+  // Use the healthier one as primary
+  if (lio_health >= vio_health) {
+    return FusionMode::DEGRADED_VIO;  // VIO is worse, so mark as degraded_vio
+  } else {
+    return FusionMode::DEGRADED_LIO;  // LIO is worse, so mark as degraded_lio
+  }
 }
 
 bool ModeManager::shouldSwitchMode(FusionMode candidate_mode)
@@ -145,17 +203,6 @@ std::vector<ModeTransition> ModeManager::getTransitionHistory() const
   return transition_history_;
 }
 
-void ModeManager::forceMode(FusionMode mode, const std::string & reason)
-{
-  RCLCPP_WARN(node_->get_logger(), 
-    "Manual mode override: %s -> %s (reason: %s)",
-    modeToString(current_mode_).c_str(),
-    modeToString(mode).c_str(),
-    reason.c_str());
-  
-  executeModeSwitch(mode, "MANUAL_OVERRIDE: " + reason);
-}
-
 std::string ModeManager::modeToString(FusionMode mode) const
 {
   switch (mode) {
@@ -176,6 +223,17 @@ FusionMode ModeManager::stringToMode(const std::string & str) const
   if (str == "degraded_kinematic") return FusionMode::DEGRADED_KINEMATIC;
   if (str == "safe_stop") return FusionMode::SAFE_STOP;
   return FusionMode::NOMINAL;
+}
+
+void ModeManager::forceMode(FusionMode mode, const std::string & reason)
+{
+  RCLCPP_WARN(node_->get_logger(), 
+    "Manual mode override: %s -> %s (reason: %s)",
+    modeToString(current_mode_).c_str(),
+    modeToString(mode).c_str(),
+    reason.c_str());
+  
+  executeModeSwitch(mode, "MANUAL_OVERRIDE: " + reason);
 }
 
 void ModeManager::notifyCallbacks(const ModeTransition & transition)

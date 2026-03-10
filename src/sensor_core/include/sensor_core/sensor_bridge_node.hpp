@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 // About: Main sensor orchestration node that loads providers via pluginlib,
-// monitors time synchronization, and publishes aggregated health status.
+// monitors time synchronization, and provides health data via on-demand service.
 
 #pragma once
 
@@ -23,8 +23,8 @@
 
 #include <pluginlib/class_loader.hpp>
 #include <rclcpp/rclcpp.hpp>
-#include <std_msgs/msg/string.hpp>
 
+#include "common_msgs/srv/get_perception_health.hpp"
 #include "sensor_core/health_monitor.hpp"
 #include "sensor_core/time_synchronizer.hpp"
 #include "sensor_interfaces/sensor_driver.hpp"
@@ -42,7 +42,14 @@ private:
   void start_providers();
   void stop_providers();
   void monitor_loop();
-  void publish_health();
+  
+  /**
+   * @brief Service callback for on-demand health queries.
+   * Responds to fusion_core requests with current aggregated health.
+   */
+  void on_health_request(
+    const std::shared_ptr<common_msgs::srv::GetPerceptionHealth::Request> request,
+    std::shared_ptr<common_msgs::srv::GetPerceptionHealth::Response> response);
 
   // Plugin loader for sensor drivers
   std::unique_ptr<pluginlib::ClassLoader<sensor_interfaces::SensorDriver>> driver_loader_;
@@ -56,10 +63,11 @@ private:
 
   // ROS interfaces
   rclcpp::TimerBase::SharedPtr monitor_timer_;
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr health_pub_;
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr mode_pub_;
+  
+  // Health service (on-demand, no publishing)
+  rclcpp::Service<common_msgs::srv::GetPerceptionHealth>::SharedPtr health_service_;
 
-  // Configuration
+  // Parameters
   std::vector<std::string> provider_classes_;
   std::string calibration_version_;
   double monitor_rate_hz_{10.0};
