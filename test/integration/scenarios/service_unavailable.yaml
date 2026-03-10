@@ -1,0 +1,125 @@
+# Service Unavailable FDIIR Test Scenario
+# Tests fallback behavior when health service fails or is unavailable
+# 
+# Expected Behavior:
+# - T+5s: Health service stopped
+# - T+5-10s: Health decays at ~5% per cycle
+# - T+20s: System enters degraded mode
+# - T+35s: System enters safe_stop (2s timeout exceeded)
+# - T+40s: Health service restarted
+# - T+42s: System recovers to nominal
+
+scenario:
+  name: "health_service_unavailable"
+  description: "Tests fallback when health service fails"
+  duration: 45.0
+  compute_profile: "dev"
+  
+  # Initial conditions
+  initial_health:
+    overall: 0.95
+    lio: 0.95
+    vio: 0.90
+    kinematic: 0.98
+    lidar: 0.95
+    camera: 0.92
+    imu: 0.98
+    time_sync_valid: true
+  
+  # Fault injection schedule
+  faults:
+    - time: 5.0
+      action: "stop_node"
+      target: "sensor_bridge_node"
+      duration: 30.0
+      description: "Stop health service provider"
+      
+    - time: 40.0
+      action: "start_node"
+      target: "sensor_bridge_node"
+      description: "Restart health service"
+  
+  # Validation assertions
+  assertions:
+    # T+10s - Health should be decaying
+    - time: 10.0
+      check: "health_decay_rate"
+      min_rate: 0.04  # At least 4% per cycle (5% target with tolerance)
+      max_rate: 0.08  # No more than 8% per cycle
+      
+    - time: 10.0
+      check: "service_responsive"
+      expected: false
+      
+    - time: 10.0
+      check: "fault_flags"
+      expected_contains: "FAULT_SERVICE_UNAVAILABLE"
+      
+    # T+20s - Should be in degraded mode
+    - time: 20.0
+      check: "mode"
+      expected: "degraded_lio"  # Or degraded_vio depending on decay
+      tolerance: 2.0
+      
+    - time: 20.0
+      check: "health_score"
+      max_value: 0.70
+      
+    # T+35s - Should be in safe_stop (2s timeout exceeded)
+    - time: 35.0
+      check: "mode"
+      expected: "safe_stop"
+      tolerance: 1.0
+      
+    - time: 35.0
+      check: "overall_health"
+      max_value: 0.10  # Near zero after 2s timeout
+      
+    - time: 35.0
+      check: "is_service_responsive"
+      expected: false
+      
+    # T+42s - Recovery after service restart
+    - time: 42.0
+      check: "mode"
+      expected: "nominal"
+      tolerance: 3.0
+      
+    - time: 42.0
+      check: "overall_health"
+      min_value: 0.85
+      
+    - time: 42.0
+      check: "service_responsive"
+      expected: true
+  
+  # Metrics to collect
+  metrics:
+    - name: "health_decay_over_time"
+      type: "timeseries"
+      field: "overall_health"
+      sample_rate_hz: 10
+      
+    - name: "service_call_count"
+      type: "counter"
+      event: "health_service_call"
+      
+    - name: "cache_hit_rate"
+      type: "ratio"
+      numerator: "cache_hits"
+      denominator: "total_health_requests"
+      
+  # Pass/fail criteria
+  pass_criteria:
+    - "Health decays at ~5% per cycle when service unavailable"
+    - "System enters degraded mode within 20s"
+    - "System enters safe_stop within 35s (2s timeout)"
+    - "System recovers to nominal within 5s of service restart"
+    - "No crashes or exceptions during service unavailability"
+    
+  fail_criteria:
+    - "No decay applied when service unavailable"
+    - "Health drops immediately to zero without gradual decay"
+    - "System crashes when health service stops"
+    - "No recovery after service restart"
+    - "Incorrect fault flags set"

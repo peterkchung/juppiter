@@ -21,4 +21,19 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   DEPENDENCIES std_msgs geometry_msgs
 )
 
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  find_package(ament_lint_auto REQUIRED)
+  
+  ament_lint_auto_find_test_dependencies()
+  
+  # Unit tests for generated messages
+  ament_add_gtest(test_perception_health
+    test/test_perception_health.cpp
+  )
+  ament_target_dependencies(test_perception_health
+    ${PROJECT_NAME}
+  )
+endif()
+
 ament_package()

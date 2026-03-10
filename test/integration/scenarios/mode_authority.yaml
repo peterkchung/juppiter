@@ -1,0 +1,182 @@
+# Mode Authority FDIIR Test Scenario
+# Verifies fusion_core is the sole authority for mode publishing
+# 
+# Expected Behavior:
+# - Only fusion_core publishes /perception/mode
+# - sensor_core does NOT publish mode (only health service)
+# - Mode transitions go through fusion_core's ModeManager
+# - 3-cycle persistence prevents flutter
+
+scenario:
+  name: "single_mode_authority"
+  description: "Confirms fusion_core is sole mode publisher"
+  duration: 60.0
+  compute_profile: "dev"
+  
+  # Initial conditions
+  initial_health:
+    overall: 0.95
+    lio: 0.95
+    vio: 0.90
+    kinematic: 0.98
+    
+  # Mode authority checks
+  mode_authority_checks:
+    - node: "fusion_node"
+      topic: "/perception/mode"
+      expected_publisher: true
+      description: "fusion_core should publish mode"
+      
+    - node: "sensor_bridge_node"
+      topic: "/perception/mode"
+      expected_publisher: false
+      description: "sensor_core should NOT publish mode"
+      
+    - node: "fusion_node"
+      topic: "/perception/health"
+      expected_publisher: true
+      description: "fusion_core should forward health for diagnostics"
+  
+  # Fault injection
+  faults:
+    # Degrade LIO
+    - time: 10.0
+      action: "degrade_estimator"
+      target: "lio"
+      health: 0.60
+      duration: 30.0
+      description: "Reduce LIO health to trigger mode change"
+      
+    # Further degrade LIO (should stay in degraded_lio due to persistence)
+    - time: 15.0
+      action: "degrade_estimator"
+      target: "lio"
+      health: 0.55
+      description: "Further LIO degradation"
+      
+    # Recover LIO
+    - time: 40.0
+      action: "restore_estimator"
+      target: "lio"
+      health: 0.95
+      description: "Restore LIO to nominal"
+      
+  # Validation assertions
+  assertions:
+    # Verify single publisher at start
+    - time: 5.0
+      check: "mode_topic_publishers"
+      expected_count: 1
+      expected_node: "fusion_node"
+      
+    # After LIO degradation - should see mode transition
+    - time: 13.0
+      check: "mode"
+      expected: "degraded_lio"
+      tolerance: 3.0  # 3-cycle persistence
+      
+    # Verify mode history shows transition
+    - time: 15.0
+      check: "mode_transition_count"
+      min_value: 1
+      description: "Should have at least 1 mode transition recorded"
+      
+    # Verify transition was through fusion_core
+    - time: 15.0
+      check: "last_mode_transition_publisher"
+      expected: "fusion_node"
+      
+    # After recovery - back to nominal
+    - time: 45.0
+      check: "mode"
+      expected: "nominal"
+      tolerance: 3.0
+      
+    # Total transitions should be minimal (persistence working)
+    - time: 50.0
+      check: "total_mode_transitions"
+      max_value: 4  # nominal→degraded→nominal (plus maybe some flutter)
+      description: "Should not have excessive mode flutter"
+      
+  # Mode transition details to verify
+  mode_transition_validations:
+    - from: "nominal"
+      to: "degraded_lio"
+      expected_duration: 0.15  # 3 cycles at 20Hz = 150ms
+      tolerance: 0.05
+      reason_contains: "health"
+      
+    - from: "degraded_lio"
+      to: "nominal"
+      expected_duration: 0.15
+      tolerance: 0.05
+      reason_contains: "recovery"
+      
+  # Publisher validation
+  publisher_assertions:
+    - topic: "/perception/mode"
+      check: "publisher_count"
+      expected: 1
+      throughout_test: true
+      
+    - topic: "/perception/mode"
+      check: "publisher_node"
+      expected: "fusion_node"
+      throughout_test: true
+      
+    - topic: "/perception/health"
+      check: "publisher_count"
+      expected: 1
+      expected_node: "fusion_node"
+      description: "Health forwarded by fusion_core for diagnostics"
+      
+  # Authority checks
+  authority_checks:
+    - component: "fusion_core::ModeManager"
+      method: "determineMode"
+      called: true
+      exclusive: true
+      description: "Only ModeManager should determine system mode"
+      
+    - component: "sensor_core::HealthMonitor"
+      method: "determineMode"
+      called: false
+      description: "sensor_core should NOT determine mode (removed)"
+      
+  # Metrics
+  metrics:
+    - name: "mode_authority_violations"
+      type: "counter"
+      event: "non_fusion_core_mode_publish"
+      expected: 0
+      fail_if_greater_than: 0
+      
+    - name: "mode_persistence_effectiveness"
+      type: "ratio"
+      description: "Ratio of prevented flutter to actual transitions"
+      numerator: "prevented_transitions"
+      denominator: "total_mode_evaluations"
+      min_value: 0.90  # 90% of evaluations should be prevented (persistence working)
+      
+  # Pass/fail criteria
+  pass_criteria:
+    - "Only fusion_core publishes /perception/mode"
+    - "sensor_core does NOT publish /perception/mode"
+    - "Mode transitions go through ModeManager in fusion_core"
+    - "3-cycle persistence prevents mode flutter"
+    - "Mode history shows correct transitions"
+    - "Health is forwarded by fusion_core for diagnostics"
+    
+  fail_criteria:
+    - "Multiple publishers on /perception/mode"
+    - "sensor_core still publishing mode (architecture violation)"
+    - "Mode determined outside of fusion_core"
+    - "No persistence (immediate mode changes)"
+    - "Excessive mode transitions (>4 in test)"
+    
+  # Architecture validation
+  architecture_validation:
+    - "Single Responsibility: ModeManager in fusion_core only"
+    - "Separation of Concerns: sensor_core provides health data, fusion_core determines mode"
+    - "No Duplication: Mode logic only in one place"
+    - "Clear Authority: fusion_core is sole mode publisher"

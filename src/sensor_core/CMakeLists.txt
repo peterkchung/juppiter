@@ -11,6 +11,7 @@ find_package(sensor_interfaces REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(common_msgs REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
 # Library
@@ -31,6 +32,7 @@ ament_target_dependencies(${PROJECT_NAME}
   pluginlib
   sensor_msgs
   std_msgs
+  common_msgs
   yaml-cpp
 )
 
@@ -61,8 +63,22 @@ install(TARGETS sensor_bridge_node
 )
 
 if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
   find_package(ament_lint_auto REQUIRED)
+  
   ament_lint_auto_find_test_dependencies()
+  
+  # Unit tests for HealthMonitor
+  ament_add_gtest(test_health_monitor
+    test/test_health_monitor.cpp
+    test/mock_sensor_driver.hpp
+  )
+  target_link_libraries(test_health_monitor ${PROJECT_NAME})
+  ament_target_dependencies(test_health_monitor
+    rclcpp
+    sensor_interfaces
+    common_msgs
+  )
 endif()
 
 ament_export_include_directories(include)
@@ -74,6 +90,7 @@ ament_export_dependencies(
   pluginlib
   sensor_msgs
   std_msgs
+  common_msgs
   yaml-cpp
 )
 

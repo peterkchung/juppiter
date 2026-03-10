@@ -1,0 +1,106 @@
+# About: Cascading Fault Test Scenario
+# Tests graceful degradation through multiple sensor failures
+
+scenario_name: "cascading_fault"
+description: "Verify safe_stop triggers when multiple sensors fail"
+duration_seconds: 120
+
+# Test metadata
+category: "catastrophic_failure"
+priority: "critical"
+tier: ["dev", "edge", "low_power"]
+
+# Fault injection schedule
+fault_injection:
+  - time_sec: 15.0
+    type: "sensor_dropout"
+    target: "/lidar/points"
+    duration_sec: 40.0
+    description: "LiDAR fails"
+    
+  - time_sec: 35.0
+    type: "sensor_dropout"
+    target: "/stereo/left/image_raw"
+    duration_sec: 40.0
+    description: "Camera fails while LiDAR still down"
+    
+  - time_sec: 60.0
+    type: "rate_degradation"
+    target: "/imu/data"
+    new_rate_hz: 50.0  # Reduced from 200Hz
+    duration_sec: 30.0
+    description: "IMU rate drops significantly"
+    
+  - time_sec: 95.0
+    type: "sensor_recovery"
+    target: "/lidar/points"
+    description: "LiDAR recovers"
+    
+  - time_sec: 100.0
+    type: "sensor_recovery"
+    target: "/stereo/left/image_raw"
+    description: "Camera recovers"
+    
+  - time_sec: 105.0
+    type: "sensor_recovery"
+    target: "/imu/data"
+    description: "IMU returns to full rate"
+
+# Expected behavior assertions
+expected_behavior:
+  - at_time: 16.0
+    expected_mode: "degraded_lio"
+    expected_primary: "vio"
+    description: "LiDAR failure → VIO takes over"
+    
+  - at_time: 36.0
+    expected_mode: "degraded_vio"  # Or degraded_kinematic depending on weights
+    description: "Both LiDAR and vision down → kinematic fallback"
+    
+  - at_time: 61.0
+    expected_mode: "safe_stop"
+    description: "All sensors degraded → safe stop mode"
+    action_triggered: "initiate_stop_sequence"
+    
+  - at_time: 96.0
+    expected_mode: "degraded_lio"
+    description: "LiDAR back but VIO still down"
+    
+  - at_time: 101.0
+    expected_mode: "nominal"
+    description: "All sensors recovered → full operation"
+
+# Success criteria
+success_criteria:
+  safe_stop_triggered_at_correct_time: true
+  no_unexpected_safe_stop: true
+  graceful_recovery_sequence: true
+  max_pose_error_during_degradation_m: 2.0
+  
+# Metrics to collect
+metrics:
+  - name: "mode_transition_sequence"
+    type: "mode_history"
+    
+  - name: "health_scores_all"
+    type: "health_metrics"
+    sources: ["lio", "vio", "kinematic"]
+    
+  - name: "fusion_confidence"
+    type: "health_metric"
+    source: "fusion"
+    
+  - name: "recovery_time"
+    type: "duration"
+    description: "Time from first recovery to nominal mode"
+
+# Pass/fail criteria
+pass_criteria:
+  - safe_stop_triggered_when_health_below_0.55: true
+  - system_recovered_to_nominal: true
+  - no_system_crash: true
+  
+fail_criteria:
+  - safe_stop_not_triggered: true
+  - system_crashed: true
+  - unable_to_recover: true

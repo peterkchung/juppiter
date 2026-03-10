@@ -15,6 +15,7 @@ find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(yaml-cpp REQUIRED)
+find_package(common_msgs REQUIRED)
 
 find_package(sensor_interfaces REQUIRED)
 find_package(lio_estimator_interfaces REQUIRED)
@@ -24,6 +25,7 @@ add_library(${PROJECT_NAME} SHARED
   src/fusion_engine.cpp
   src/mode_manager.cpp
   src/weight_calculator.cpp
+  src/health_client.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC
@@ -40,6 +42,7 @@ ament_target_dependencies(${PROJECT_NAME}
   tf2
   tf2_ros
   tf2_geometry_msgs
+  common_msgs
   sensor_interfaces
   lio_estimator_interfaces
   vio_estimator_interfaces
@@ -79,18 +82,33 @@ ament_export_include_directories(include)
 ament_export_libraries(${PROJECT_NAME})
 ament_export_dependencies(
   rclcpp nav_msgs sensor_msgs geometry_msgs std_msgs
-  tf2 tf2_ros tf2_geometry_msgs yaml-cpp
+  tf2 tf2_ros tf2_geometry_msgs yaml-cpp common_msgs
   sensor_interfaces lio_estimator_interfaces vio_estimator_interfaces
 )
 
 if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
   
-  # TODO: Add tests when test files are created
-  # find_package(ament_cmake_gtest REQUIRED)
-  # ament_add_gtest(test_fusion_engine test/test_fusion_engine.cpp)
-  # target_link_libraries(test_fusion_engine ${PROJECT_NAME})
+  # HealthClient unit tests
+  ament_add_gtest(test_health_client
+    test/test_health_client.cpp
+    test/mock_service_client.hpp
+  )
+  target_link_libraries(test_health_client ${PROJECT_NAME})
+  ament_target_dependencies(test_health_client
+    rclcpp common_msgs
+  )
+  
+  # ModeManager unit tests
+  ament_add_gtest(test_mode_manager
+    test/test_mode_manager.cpp
+  )
+  target_link_libraries(test_mode_manager ${PROJECT_NAME})
+  ament_target_dependencies(test_mode_manager
+    rclcpp common_msgs
+  )
 endif()
 
 ament_package()
