@@ -15,6 +15,7 @@ find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(yaml-cpp REQUIRED)
+find_package(common_msgs REQUIRED)
 
 find_package(sensor_interfaces REQUIRED)
 find_package(lio_estimator_interfaces REQUIRED)
@@ -24,6 +25,7 @@ add_library(${PROJECT_NAME} SHARED
   src/fusion_engine.cpp
   src/mode_manager.cpp
   src/weight_calculator.cpp
+  src/health_client.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC
@@ -40,6 +42,7 @@ ament_target_dependencies(${PROJECT_NAME}
   tf2
   tf2_ros
   tf2_geometry_msgs
+  common_msgs
   sensor_interfaces
   lio_estimator_interfaces
   vio_estimator_interfaces
@@ -79,7 +82,7 @@ ament_export_include_directories(include)
 ament_export_libraries(${PROJECT_NAME})
 ament_export_dependencies(
   rclcpp nav_msgs sensor_msgs geometry_msgs std_msgs
-  tf2 tf2_ros tf2_geometry_msgs yaml-cpp
+  tf2 tf2_ros tf2_geometry_msgs yaml-cpp common_msgs
   sensor_interfaces lio_estimator_interfaces vio_estimator_interfaces
 )
 

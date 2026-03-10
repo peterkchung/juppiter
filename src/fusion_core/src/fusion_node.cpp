@@ -1,5 +1,5 @@
 // About: Fusion Node
-// ROS 2 node for fusion_core integration
+// ROS 2 node for fusion_core with on-demand health queries
 
 #include <memory>
 #include <string>
@@ -10,6 +10,8 @@
 
 #include "fusion_core/fusion_engine.hpp"
 #include "fusion_core/mode_manager.hpp"
+#include "fusion_core/health_client.hpp"
+#include "common_msgs/msg/perception_health.hpp"
 
 namespace juppiter
 {
@@ -28,6 +30,11 @@ public:
     this->declare_parameter<std::string>("health_config", "config/fusion/health_thresholds.yaml");
     this->declare_parameter<double>("fusion_rate_hz", 20.0);
     
+    // Health client configuration (edge compute optimized)
+    this->declare_parameter<double>("health_service_timeout_ms", 50.0);
+    this->declare_parameter<double>("health_cache_ttl_ms", 100.0);  // 2 cycles at 20Hz
+    this->declare_parameter<double>("health_decay_rate", 0.05);     // 5% per cycle
+    
     RCLCPP_INFO(this->get_logger(), 
       "FusionNode created with profile: %s", 
       this->get_parameter("compute_profile").as_string().c_str());
@@ -40,9 +47,19 @@ public:
     std::string fusion_config = this->get_parameter("fusion_config").as_string();
     std::string health_config = this->get_parameter("health_config").as_string();
     double fusion_rate = this->get_parameter("fusion_rate_hz").as_double();
+    double health_timeout = this->get_parameter("health_service_timeout_ms").as_double();
+    double health_cache_ttl = this->get_parameter("health_cache_ttl_ms").as_double();
+    double health_decay = this->get_parameter("health_decay_rate").as_double();
     
     RCLCPP_INFO(this->get_logger(), 
       "FusionNode initializing with profile: %s", compute_profile.c_str());
+    
+    // Initialize health client (on-demand queries with caching)
+    health_client_ = std::make_unique<HealthClient>(this->shared_from_this());
+    if (!health_client_->initialize(health_timeout, health_cache_ttl, health_decay)) {
+      RCLCPP_ERROR(this->get_logger(), "Failed to initialize health client");
+      return;
+    }
     
     // Initialize fusion engine
     engine_ = std::make_unique<FusionEngine>();
@@ -51,7 +68,7 @@ public:
       return;
     }
     
-    // Initialize mode manager
+    // Initialize mode manager (single authority for mode decisions)
     mode_manager_ = std::make_unique<ModeManager>();
     if (!mode_manager_->initialize(this->shared_from_this(), health_config)) {
       RCLCPP_ERROR(this->get_logger(), "Failed to initialize mode manager");
@@ -82,6 +99,8 @@ public:
       "/perception/odom", 10);
     mode_pub_ = this->create_publisher<std_msgs::msg::String>(
       "/perception/mode", 10);
+    health_pub_ = this->create_publisher<common_msgs::msg::PerceptionHealth>(
+      "/perception/health", 10);  // Forward health for diagnostics
     
     // Create fusion timer
     fusion_timer_ = this->create_wall_timer(
@@ -94,45 +113,35 @@ public:
 private:
   void onLioOdometry(const nav_msgs::msg::Odometry::SharedPtr msg)
   {
-    // Store odometry for fusion
     engine_->updateLioOdometry(msg);
-    
-    // Extract covariance norm (simplified)
-    float cov_norm = std::sqrt(
-      msg->pose.covariance[0] + msg->pose.covariance[7] + msg->pose.covariance[14]);
-    
-    lio::LioHealthStatus health;
-    health.health_score = 1.0f;  // TODO: Get from actual health monitor
-    health.covariance_norm = cov_norm;
-    
-    engine_->updateLioInput(health);
   }
   
   void onVioOdometry(const nav_msgs::msg::Odometry::SharedPtr msg)
   {
-    // Store odometry for fusion
     engine_->updateVioOdometry(msg);
-    
-    float cov_norm = std::sqrt(
-      msg->pose.covariance[0] + msg->pose.covariance[7] + msg->pose.covariance[14]);
-    
-    vio::VioHealthStatus health;
-    health.health_score = 1.0f;
-    health.covariance_norm = cov_norm;
-    
-    engine_->updateVioInput(health);
   }
   
   void onKinematicOdometry(const nav_msgs::msg::Odometry::SharedPtr msg)
   {
-    float cov_norm = std::sqrt(
-      msg->pose.covariance[0] + msg->pose.covariance[7] + msg->pose.covariance[14]);
-    
-    engine_->updateKinematicInput(msg, cov_norm);
+    engine_->updateKinematicOdometry(msg);
   }
   
   void fusionLoop()
   {
+    // Get health from sensor_core (on-demand with caching)
+    auto health_opt = health_client_->getHealth();
+    
+    if (!health_opt.has_value()) {
+      RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
+        "Health unavailable, using fallback with decay");
+    }
+    
+    // Use health for fusion
+    auto health = health_opt.value_or(health_client_->getCachedHealth());
+    
+    // Update fusion engine with health data
+    engine_->updateHealth(health);
+    
     // Update mode manager transition state
     mode_manager_->updateTransition(0.05f);  // Assume 50ms loop
     
@@ -140,38 +149,50 @@ private:
     if (engine_->isFusionReady()) {
       FusedOdometry result = engine_->computeFusion();
       
+      // Determine mode based on health (fusion_core is authority)
+      FusionMode evaluated_mode = mode_manager_->evaluateMode(
+        health.lio_health,
+        health.vio_health,
+        health.kinematic_health,
+        health.overall_health);
+        
+      if (mode_manager_->shouldSwitchMode(evaluated_mode)) {
+        mode_manager_->executeModeSwitch(evaluated_mode, "Health threshold crossed");
+      }
+      
+      // Update result with authoritative mode
+      result.mode = evaluated_mode;
+      
       // Publish fused odometry
       fused_odom_pub_->publish(result.odometry);
       
       // Publish mode
       std_msgs::msg::String mode_msg;
-      mode_msg.data = engine_->getModeString();
+      mode_msg.data = mode_manager_->modeToString(evaluated_mode);
       mode_pub_->publish(mode_msg);
       
-      // Check for mode transitions
-      FusionMode evaluated_mode = mode_manager_->evaluateMode(
-        result.source_weights.at("lio"),
-        result.source_weights.at("vio"),
-        result.source_weights.at("kinematic"));
-        
-      if (mode_manager_->shouldSwitchMode(evaluated_mode)) {
-        mode_manager_->executeModeSwitch(evaluated_mode, "Health threshold crossed");
-      }
+      // Update health with authoritative mode and publish
+      health.mode = static_cast<uint8_t>(evaluated_mode);
+      health.mode_string = mode_msg.data;
+      health.overall_health = result.overall_health;
+      health_pub_->publish(health);
     }
   }
   
   void onModeChange(const ModeTransition & transition)
   {
-    // Note: mode is enum, convert to string for logging
     RCLCPP_INFO(this->get_logger(), 
-      "Mode changed");
+      "Mode changed: %s", 
+      mode_manager_->modeToString(transition.new_mode).c_str());
     
-    // TODO: Update fusion engine weights based on new mode
+    // Update fusion engine weights based on new mode
+    engine_->setMode(transition.new_mode);
   }
   
   // Core components
   std::unique_ptr<FusionEngine> engine_;
   std::unique_ptr<ModeManager> mode_manager_;
+  std::unique_ptr<HealthClient> health_client_;
   
   // Subscribers
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr lio_odom_sub_;
@@ -181,6 +202,7 @@ private:
   // Publishers
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr fused_odom_pub_;
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr mode_pub_;
+  rclcpp::Publisher<common_msgs::msg::PerceptionHealth>::SharedPtr health_pub_;
   
   // Timer
   rclcpp::TimerBase::SharedPtr fusion_timer_;
@@ -193,7 +215,7 @@ int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<juppiter::fusion::FusionNode>();
-  node->initialize();  // Initialize after shared_ptr is created
+  node->initialize();
   rclcpp::spin(node);
   rclcpp::shutdown();
   return 0;
