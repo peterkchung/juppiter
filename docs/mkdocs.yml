@@ -1,0 +1,122 @@
+site_name: juppiter Documentation
+site_description: Lunar robotics perception pipeline documentation
+site_author: juppiter Team
+site_url: https://github.com/opencode/juppiter
+
+# Repository (for edit links)
+repo_name: juppiter
+repo_url: https://github.com/opencode/juppiter
+edit_uri: blob/main/docs/
+
+# Theme configuration
+theme:
+  name: material
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.indexes
+    - toc.integrate
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.code.copy
+    - content.code.annotate
+  icon:
+    repo: fontawesome/brands/github
+
+# Plugins
+plugins:
+  - search
+  - minify:
+      minify_html: true
+
+# Extensions
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.keys
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+# Extra CSS
+extra_css:
+  - stylesheets/extra.css
+
+# Extra JavaScript
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+# Navigation structure
+nav:
+  - Home: index.md
+  - Getting Started:
+    - getting-started/index.md
+    - getting-started/installation.md
+    - getting-started/running-simulation.md
+  - Architecture:
+    - architecture/index.md
+    - architecture/overview.md
+    - architecture/compute-profiles.md
+    - architecture/sensor-core.md
+    - architecture/fusion-core.md
+    - architecture/interfaces.md
+  - User Guides:
+    - user-guides/index.md
+    - user-guides/configuration.md
+    - user-guides/sensor-integration.md
+    - user-guides/fdiir-testing.md
+  - Development:
+    - development/index.md
+    - development/contributing.md
+    - development/testing.md
+    - development/ci-cd.md
+    - development/troubleshooting.md
+  - Reference:
+    - reference/index.md
+    - reference/ros-topics.md
+    - reference/configuration-reference.md
+    - reference/package-overview.md
+
+# Extra settings
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/opencode/juppiter

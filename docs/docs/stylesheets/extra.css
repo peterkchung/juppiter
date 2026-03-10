@@ -1,0 +1,26 @@
+/* Custom styles for juppiter documentation */
+
+/* Make code blocks more readable */
+.md-typeset code {
+  font-size: 0.85em;
+}
+
+/* Highlight important notes */
+.md-typeset .admonition.important {
+  border-left-color: #7c4dff;
+}
+
+/* Custom callout for warnings */
+.md-typeset .admonition.warning {
+  border-left-color: #ff9800;
+}
+
+/* Table styling */
+.md-typeset table:not([class]) {
+  font-size: 0.8rem;
+}
+
+/* Make the site title stand out */
+.md-header__title {
+  font-weight: 600;
+}
