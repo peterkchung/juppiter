@@ -1,0 +1,143 @@
+# Unified Perception System Configuration
+# Single source of truth for health thresholds and fusion parameters
+# Used by both sensor_core and fusion_core
+
+perception_system:
+  # ============================================================================
+  # HEALTH THRESHOLDS
+  # Single source of truth - used by ModeManager for mode determination
+  # ============================================================================
+  health:
+    # Overall system health thresholds
+    nominal_threshold: 0.75        # Health >= 0.75: nominal mode
+    degraded_threshold: 0.55       # 0.55 <= Health < 0.75: degraded mode
+    safe_stop_threshold: 0.55      # Health < 0.55: safe_stop mode
+    
+    # Individual sensor health minimums (for diagnostics)
+    min_sensor_health: 0.3         # Any sensor below this is considered failed
+    
+    # Time sync thresholds
+    target_sync_skew_ms: 5.0      # Target mean inter-sensor skew
+    max_sync_skew_ms: 10.0         # Maximum acceptable skew (p95)
+    sync_violation_threshold_ms: 20.0  # Above this is a sync violation
+    
+    # Stale data detection
+    stale_timeout_multiplier: 2.0  # Timeout = 2x expected publication period
+    min_publication_rate_percent: 0.8  # Alert if rate drops below 80% of expected
+    
+    # Covariance thresholds
+    max_position_std_m: 1.0        # Maximum acceptable position uncertainty
+    max_orientation_std_deg: 10.0  # Maximum acceptable orientation uncertainty
+
+  # ============================================================================
+  # FUSION WEIGHTS
+  # By mode - determines how LIO, VIO, and Kinematic are weighted in fusion
+  # ============================================================================
+  fusion_weights:
+    # Nominal operation: LIO primary, VIO secondary, Kinematic baseline
+    nominal:
+      lio: 0.50
+      vio: 0.35
+      kinetic: 0.15
+    
+    # LIO degraded: Reduce LIO weight, increase VIO
+    degraded_lio:
+      lio: 0.10
+      vio: 0.70
+      kinetic: 0.20
+    
+    # VIO degraded: Reduce VIO weight, increase LIO
+    degraded_vio:
+      lio: 0.70
+      vio: 0.10
+      kinetic: 0.20
+    
+    # Kinematic degraded (unusual): LIO and VIO handle fusion
+    degraded_kinematic:
+      lio: 0.50
+      vio: 0.40
+      kinetic: 0.10
+    
+    # Safe stop: Rely primarily on kinematic for basic odometry
+    safe_stop:
+      lio: 0.0
+      vio: 0.0
+      kinetic: 1.0  # Pure wheel odometry + IMU fallback
+
+  # ============================================================================
+  # EDGE COMPUTE OPTIMIZATION
+  # Parameters for resource-constrained environments (Raspberry Pi 5, Jetson)
+  # ============================================================================
+  optimization:
+    # Health service configuration
+    health_service_timeout_ms: 50.0     # Service call timeout
+    health_cache_ttl_ms: 100.0          # Cache time-to-live (2 cycles at 20Hz)
+    health_decay_rate: 0.05             # Health decay per cycle on service failure
+    max_health_age_s: 2.0               # Enter safe_stop after 2s without fresh health
+    enable_health_cache: true           # Enable caching to reduce service calls
+    
+    # Fusion rate
+    fusion_rate_hz: 20.0                # Fusion update rate
+    
+    # Mode transition settings
+    mode_transition_cycles: 3           # Cycles to confirm mode change (hysteresis)
+    mode_transition_duration_s: 2.0     # Duration of mode transition
+    
+    # Monitoring
+    health_monitor_rate_hz: 10.0        # Health aggregation rate (sensor_core)
+    time_sync_monitor_rate_hz: 10.0     # Time sync monitoring rate
+
+  # ============================================================================
+  # FALLBACK BEHAVIOR
+  # Worst-case scenarios for extreme conditions
+  # ============================================================================
+  fallback:
+    # Decay settings
+    decay_health_on_timeout: true       # Apply decay when health service times out
+    health_decay_rate: 0.05             # Percentage per cycle (configurable)
+    
+    # Safe stop settings
+    default_to_safe_stop: true          # Enter safe_stop on critical failures
+    safe_stop_timeout_s: 2.0            # Time before entering safe_stop
+    
+    # Kinematic fallback
+    preserve_last_known_pose: true      # Continue publishing last good pose
+    use_kinematic_only_on_safe_stop: true  # Pure wheel odometry in safe_stop
+    
+    # Service unavailability
+    fallback_to_cached_health: true     # Use cached health if service unavailable
+    max_fallback_age_s: 5.0             # Max age of cached health before giving up
+
+  # ============================================================================
+  # SAFETY LIMITS
+  # Hard limits for robot safety
+  # ============================================================================
+  safety:
+    # Position discontinuity limits during mode transitions
+    max_position_jump_m: 0.30           # Maximum position jump (meters)
+    max_yaw_jump_deg: 5.0               # Maximum yaw jump (degrees)
+    
+    # Covariance inflation during transitions
+    covariance_inflation_factor: 2.0    # Multiply covariance during mode changes
+    
+    # Emergency stop
+    emergency_stop_on_critical_fault: true  # Immediate stop on critical faults
+
+  # ============================================================================
+  # DIAGNOSTICS
+  # Settings for health monitoring and debugging
+  # ============================================================================
+  diagnostics:
+    # Logging
+    log_mode_transitions: true          # Log all mode changes
+    log_health_warnings: true           # Log health warnings
+    log_sync_violations: true           # Log time sync violations
+    
+    # History
+    max_transition_history: 100           # Keep last 100 mode transitions
+    
+    # Health publishing (forwarded by fusion_core)
+    publish_health_detailed: true        # Include detailed sensor breakdown
+    
+    # Fault reporting
+    report_all_faults: true             # Report all fault flags individually
